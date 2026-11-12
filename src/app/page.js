@@ -1,33 +1,32 @@
+'use client';
+
+import { useState } from 'react';
 
 export default function Home() {
+  const [pickup, setPickup] = useState('Boys Hostel');
+  const [dropoff, setDropoff] = useState('Main Gate');
+
   return (
-    <main className="min-h-screen bg-white text-black">
+    <main className="min-h-screen bg-white text-black selection:bg-black selection:text-white">
 
       {/* Navbar */}
-      <nav className="flex items-center justify-between border-b border-gray-200 px-8 py-5">
+      <nav className="mx-auto flex max-w-7xl items-center justify-between px-6 py-6">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-black text-white">
-            <span className="text-xl">🚌</span>
+          <div className="flex h-8 w-8 items-center justify-center bg-black text-white text-xs font-mono font-bold tracking-tighter">
+            CT
           </div>
-
-          <div>
-            <h1 className="text-xl font-bold tracking-tight">
-              CampusTransit
-            </h1>
-            <p className="text-xs text-gray-500">
-              Campus mobility, simplified.
-            </p>
-          </div>
+          <span className="font-semibold tracking-tight text-sm">
+            CampusTransit
+          </span>
         </div>
 
         <div className="flex items-center gap-6">
-          <a href="#about" className="text-sm text-gray-600 hover:text-black">
+          <a href="#about" className="text-xs font-medium text-gray-500 hover:text-black transition">
             About
           </a>
-
           <a
             href="/login"
-            className="rounded-lg bg-black px-5 py-3 text-sm font-semibold text-white transition hover:bg-gray-800"
+            className="bg-black text-white px-4 py-2 text-xs font-medium hover:bg-gray-800 transition"
           >
             Get Started →
           </a>
@@ -35,111 +34,123 @@ export default function Home() {
       </nav>
 
       {/* Hero Section */}
-      <section className="mx-auto grid max-w-7xl items-center gap-12 px-8 py-24 md:grid-cols-2">
+      <section className="mx-auto grid max-w-7xl items-center gap-16 px-6 pt-20 pb-32 md:grid-cols-2">
 
         {/* Left Content */}
         <div>
-          <p className="mb-5 text-sm font-semibold uppercase tracking-widest text-gray-500">
-            Smart Campus Transportation
+          <div className="inline-block border border-gray-200 px-3 py-1 text-[11px] font-mono uppercase tracking-widest text-gray-500 mb-6">
+            System v1.0
+          </div>
+
+          <h1 className="text-5xl font-extrabold tracking-tight leading-[1.1] md:text-6xl">
+            Campus mobility, <br />
+            <span className="text-gray-400">reimagined.</span>
+          </h1>
+
+          <p className="mt-6 text-base text-gray-600 max-w-md leading-relaxed">
+            Real-time shuttle tracking, capacity monitoring, and seamless route discovery built for your university commute.
           </p>
 
-          <h2 className="text-5xl font-bold leading-tight tracking-tight md:text-6xl">
-            Your campus.
-            <br />
-            Your route.
-            <br />
-            <span className="text-gray-400">Your journey.</span>
-          </h2>
-
-          <p className="mt-7 max-w-lg text-lg leading-8 text-gray-600">
-            Find campus shuttle routes, check arrival times,
-            monitor passenger capacity, and plan your journey
-            without unnecessary waiting.
-          </p>
-
-          <div className="mt-9 flex flex-wrap gap-4">
+          <div className="mt-8 flex items-center gap-4">
             <a
               href="/login"
-              className="rounded-lg bg-black px-7 py-4 font-semibold text-white transition hover:bg-gray-800"
+              className="bg-black text-white px-6 py-3 text-xs font-medium hover:bg-gray-800 transition"
             >
               Get Started →
             </a>
-
             <a
               href="#about"
-              className="rounded-lg border border-gray-300 px-7 py-4 font-semibold transition hover:bg-gray-100"
+              className="border border-gray-200 px-6 py-3 text-xs font-medium text-gray-600 hover:text-black hover:border-black transition"
             >
-              Learn More
+              System Specs
             </a>
           </div>
-
-          <p className="mt-8 text-sm text-gray-500">
-            Shuttle information · Route discovery · Last-mile options
-          </p>
         </div>
 
-        {/* Right Content */}
-        <div className="flex min-h-[380px] items-center justify-center rounded-2xl bg-gray-100 p-10">
-          <div className="text-center">
-            <div className="mb-6 text-8xl">🚌</div>
+        {/* Right Interactive Quick Route Planner */}
+        <div className="border border-gray-200 bg-gray-50 p-8">
+          <div className="flex items-center justify-between border-b border-gray-200 pb-4 mb-6">
+            <span className="text-xs font-mono font-medium text-gray-400 uppercase tracking-wider">
+              Quick Route Planner
+            </span>
+            <span className="text-[11px] font-mono text-gray-400">INTERACTIVE</span>
+          </div>
 
-            <h3 className="text-2xl font-bold">
-              Move around campus.
-            </h3>
-
-            <p className="mt-3 max-w-sm text-gray-500">
-              Everything you need to plan your campus commute
-              in one place.
-            </p>
-
-            <div className="mt-10 grid grid-cols-3 gap-3">
-              <div className="rounded-xl border border-gray-200 bg-white p-4">
-                <div className="text-2xl">📍</div>
-                <p className="mt-2 text-xs font-medium">Find Routes</p>
-              </div>
-
-              <div className="rounded-xl border border-gray-200 bg-white p-4">
-                <div className="text-2xl">⏱️</div>
-                <p className="mt-2 text-xs font-medium">Check ETA</p>
-              </div>
-
-              <div className="rounded-xl border border-gray-200 bg-white p-4">
-                <div className="text-2xl">🚐</div>
-                <p className="mt-2 text-xs font-medium">Find Rides</p>
+          <div className="space-y-4">
+            {/* Pickup Field (Editable) */}
+            <div className="bg-white border border-gray-200 p-3.5 focus-within:border-black transition">
+              <label className="block text-[10px] font-mono uppercase tracking-wider text-gray-400 mb-1">
+                Pickup Location
+              </label>
+              <div className="flex items-center gap-2.5">
+                <span className="h-2 w-2 bg-black flex-shrink-0"></span>
+                <input
+                  type="text"
+                  value={pickup}
+                  onChange={(e) => setPickup(e.target.value)}
+                  placeholder="Enter pickup location..."
+                  className="w-full text-sm font-medium text-black bg-transparent outline-none"
+                />
               </div>
             </div>
+
+            {/* Drop-off Field (Editable) */}
+            <div className="bg-white border border-gray-200 p-3.5 focus-within:border-black transition">
+              <label className="block text-[10px] font-mono uppercase tracking-wider text-gray-400 mb-1">
+                Drop-off Location
+              </label>
+              <div className="flex items-center gap-2.5">
+                <span className="h-2 w-2 border border-black flex-shrink-0"></span>
+                <input
+                  type="text"
+                  value={dropoff}
+                  onChange={(e) => setDropoff(e.target.value)}
+                  placeholder="Enter drop-off location..."
+                  className="w-full text-sm font-medium text-black bg-transparent outline-none"
+                />
+              </div>
+            </div>
+
+            {/* Action CTA */}
+            <a
+              href="/login"
+              className="block w-full bg-black text-white text-center py-3.5 text-xs font-mono uppercase tracking-wider hover:bg-gray-800 transition"
+            >
+              Find Available Shuttles →
+            </a>
           </div>
         </div>
       </section>
 
       {/* About Section */}
-      <section
-        id="about"
-        className="border-t border-gray-200 bg-gray-50 px-8 py-20"
-      >
+      <section id="about" className="border-t border-gray-200 py-20 px-6">
         <div className="mx-auto max-w-7xl">
-          <p className="text-sm font-semibold uppercase tracking-widest text-gray-500">
-            About CampusTransit
-          </p>
-
-          <h2 className="mt-4 max-w-2xl text-3xl font-bold tracking-tight">
-            Less uncertainty. Better campus journeys.
+          <span className="text-xs font-mono text-gray-400 uppercase tracking-widest">Architecture</span>
+          <h2 className="text-2xl font-bold tracking-tight mt-2 mb-6">
+            Engineered for high campus throughput.
           </h2>
-
-          <p className="mt-5 max-w-2xl leading-7 text-gray-600">
-            CampusTransit connects students, shuttle drivers, and
-            last-mile transport services through one platform.
-            Students can discover routes and check shuttle availability,
-            while drivers can update trip progress and passenger capacity.
-          </p>
+          <div className="grid md:grid-cols-3 gap-8 text-sm text-gray-600">
+            <div>
+              <strong className="text-black block mb-1">01. Route Discovery</strong>
+              Instantly find valid pathways between campus stops and buildings without unnecessary waits.
+            </div>
+            <div>
+              <strong className="text-black block mb-1">02. Capacity Tracking</strong>
+              Live crowd levels and seat counters reported directly by shuttle operators.
+            </div>
+            <div>
+              <strong className="text-black block mb-1">03. Last-Mile Synced</strong>
+              Integrated e-rickshaw and auto availability feeds for complete trip coverage.
+            </div>
+          </div>
         </div>
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-gray-200 px-8 py-6">
-        <div className="mx-auto flex max-w-7xl flex-wrap justify-between gap-3 text-sm text-gray-500">
-          <p>© 2026 CampusTransit</p>
-          <p>Built for smarter campus mobility.</p>
+      <footer className="border-t border-gray-200 py-6 px-6">
+        <div className="mx-auto flex max-w-7xl justify-between items-center text-xs text-gray-400 font-mono">
+          <p>© 2026 CampusTransit Systems</p>
+          <p>STABLE_BUILD_OK</p>
         </div>
       </footer>
 

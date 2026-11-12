@@ -1,98 +1,94 @@
-
 export default function LoginPage() {
   return (
-    <main className="flex min-h-screen items-center justify-center bg-white px-6 py-12 text-black">
+    <main className="min-h-screen bg-white text-black selection:bg-black selection:text-white flex flex-col justify-between px-6 py-8">
 
-      <div className="w-full max-w-3xl">
-
-        {/* Back to homepage */}
+      {/* Top Bar */}
+      <div className="mx-auto w-full max-w-4xl flex items-center justify-between">
         <a
           href="/"
-          className="text-sm text-gray-500 transition hover:text-black"
+          className="text-xs font-mono text-gray-500 hover:text-black transition flex items-center gap-2"
         >
-          ← Back to homepage
+          ← BACK_TO_HOME
         </a>
+        <span className="text-xs font-mono text-gray-400">AUTH_GATEWAY // V1.0</span>
+      </div>
 
-        {/* Heading */}
-        <div className="mb-12 mt-12 text-center">
-          <h1 className="text-4xl font-bold tracking-tight">
-            Welcome to CampusTransit
+      {/* Main Content */}
+      <div className="mx-auto w-full max-w-4xl my-auto py-12">
+        <div className="mb-12">
+          <span className="text-xs font-mono text-gray-400 uppercase tracking-widest">Authentication</span>
+          <h1 className="text-3xl font-bold tracking-tight mt-1">
+            Select access profile.
           </h1>
-
-          <p className="mt-3 text-gray-500">
-            Choose how you want to continue.
+          <p className="text-sm text-gray-500 mt-2 font-mono">
+            Choose your portal entry point to continue.
           </p>
         </div>
 
-        {/* Role Selection */}
-        <div className="grid gap-6 md:grid-cols-2">
+        {/* Role Selection Grid */}
+        <div className="grid gap-4 md:grid-cols-2">
 
           {/* Student Card */}
           <a
             href="/login/student"
-            className="group rounded-2xl border border-gray-200 p-8 transition hover:border-black hover:shadow-lg"
+            className="group border border-gray-200 bg-white p-8 transition hover:border-black flex flex-col justify-between"
           >
-            <div className="mb-8 flex h-16 w-16 items-center justify-center rounded-xl bg-gray-100 text-3xl transition group-hover:bg-black group-hover:text-white">
-              🎓
+            <div>
+              <div className="flex items-center justify-between mb-8">
+                <span className="text-xs font-mono uppercase tracking-wider text-gray-400">Portal 01</span>
+                <span className="text-xs font-mono font-bold px-2 py-1 bg-gray-100 text-black group-hover:bg-black group-hover:text-white transition">STUDENT</span>
+              </div>
+
+              <h2 className="text-xl font-bold tracking-tight text-black mb-3">
+                Student Transport
+              </h2>
+
+              <p className="text-sm text-gray-600 leading-relaxed mb-8">
+                Discover active campus routes, inspect live shuttle seating capacity, and plan cross-campus journeys.
+              </p>
             </div>
 
-            <h2 className="text-2xl font-bold">
-              I'm a Student
-            </h2>
-
-            <p className="mt-3 min-h-16 leading-7 text-gray-500">
-              Find shuttle routes, select your pickup and destination,
-              check arrival times, and monitor shuttle capacity.
-            </p>
-
-            <div className="mt-8 flex items-center justify-between">
-              <span className="font-semibold">
-                Continue as Student
-              </span>
-
-              <span className="text-xl transition group-hover:translate-x-1">
-                →
-              </span>
+            <div className="flex items-center justify-between border-t border-gray-100 pt-4 text-xs font-mono font-semibold">
+              <span>ACCESS_STUDENT_PORTAL</span>
+              <span className="transition group-hover:translate-x-1">→</span>
             </div>
           </a>
 
           {/* Driver Card */}
           <a
             href="/login/driver"
-            className="group rounded-2xl border border-gray-200 p-8 transition hover:border-black hover:shadow-lg"
+            className="group border border-gray-200 bg-white p-8 transition hover:border-black flex flex-col justify-between"
           >
-            <div className="mb-8 flex h-16 w-16 items-center justify-center rounded-xl bg-gray-100 text-3xl transition group-hover:bg-black group-hover:text-white">
-              🚌
+            <div>
+              <div className="flex items-center justify-between mb-8">
+                <span className="text-xs font-mono uppercase tracking-wider text-gray-400">Portal 02</span>
+                <span className="text-xs font-mono font-bold px-2 py-1 bg-gray-100 text-black group-hover:bg-black group-hover:text-white transition">DRIVER</span>
+              </div>
+
+              <h2 className="text-xl font-bold tracking-tight text-black mb-3">
+                Shuttle Operations
+              </h2>
+
+              <p className="text-sm text-gray-600 leading-relaxed mb-8">
+                Manage assigned vehicle runs, update current stop markers, and broadcast passenger load logs.
+              </p>
             </div>
 
-            <h2 className="text-2xl font-bold">
-              I'm a Driver
-            </h2>
-
-            <p className="mt-3 min-h-16 leading-7 text-gray-500">
-              View assigned shuttles, manage trips, update your
-              current stop, and report passenger capacity.
-            </p>
-
-            <div className="mt-8 flex items-center justify-between">
-              <span className="font-semibold">
-                Continue as Driver
-              </span>
-
-              <span className="text-xl transition group-hover:translate-x-1">
-                →
-              </span>
+            <div className="flex items-center justify-between border-t border-gray-100 pt-4 text-xs font-mono font-semibold">
+              <span>ACCESS_DRIVER_PORTAL</span>
+              <span className="transition group-hover:translate-x-1">→</span>
             </div>
           </a>
 
         </div>
-
-        {/* Footer */}
-        <p className="mt-12 text-center text-sm text-gray-400">
-          CampusTransit · Campus mobility, simplified.
-        </p>
-
       </div>
+
+      {/* Footer */}
+      <div className="mx-auto w-full max-w-4xl flex justify-between items-center text-xs text-gray-400 font-mono border-t border-gray-100 pt-6">
+        <p>CampusTransit Systems</p>
+        <p>SECURE_SESSION</p>
+      </div>
+
     </main>
   );
 }
