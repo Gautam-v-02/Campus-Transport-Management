@@ -1,0 +1,38 @@
+export const reports = [
+  {
+    id: "REPORT001",
+    driverId: "DRV001",
+    tripId: "TRIP001",
+    category: "TRAFFIC_CONGESTION",
+    description: "Slow traffic near the main gate during morning arrival.",
+    estimatedDelayMinutes: 8,
+    reportedAt: "2026-11-11T07:42:00+05:30",
+  },
+  {
+    id: "REPORT002",
+    driverId: "DRV002",
+    tripId: "TRIP003",
+    category: "ROAD_BLOCKAGE",
+    description: "One lane was closed for road maintenance.",
+    estimatedDelayMinutes: 12,
+    reportedAt: "2026-11-11T08:18:00+05:30",
+  },
+  {
+    id: "REPORT003",
+    driverId: "DRV003",
+    tripId: "TRIP005",
+    category: "WEATHER_CONDITIONS",
+    description: "Heavy rain reduced visibility on the city connector.",
+    estimatedDelayMinutes: 10,
+    reportedAt: "2026-11-11T09:34:00+05:30",
+  },
+  {
+    id: "REPORT004",
+    driverId: "DRV001",
+    tripId: "TRIP002",
+    category: "OTHER",
+    description: "Brief passenger boarding delay at the hostel stop.",
+    estimatedDelayMinutes: 5,
+    reportedAt: "2026-11-10T16:32:00+05:30",
+  },
+];
