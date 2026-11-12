@@ -1,36 +1,83 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import {
+  getCrowdLevel,
+  getDrivers,
+  getRoutes,
+  getShuttles,
+  getTrips,
+} from '@/lib/mockStore';
+
+function getStudentShuttleRoutes() {
+  const drivers = getDrivers();
+  const routes = getRoutes();
+  const shuttles = getShuttles();
+  const trips = getTrips();
+
+  return drivers.flatMap((driver) => {
+    const shuttle = shuttles.find((item) => item.id === driver.assignedShuttleId);
+    const route = routes.find((item) => item.id === driver.assignedRouteId);
+    if (!shuttle || !route) return [];
+
+    const activeTrip = trips.find((trip) =>
+      trip.driverId === driver.id && ['IN_PROGRESS', 'DELAYED'].includes(trip.status),
+    );
+
+    return [{
+      id: route.id,
+      name: route.routeName,
+      stops: route.stops.map((stop) => stop.name),
+      capacity: shuttle.capacity,
+      occupiedSeats: shuttle.occupiedSeats,
+      crowdLevel: getCrowdLevel(shuttle.occupiedSeats, shuttle.capacity),
+      status: activeTrip?.status || shuttle.status,
+      shuttleId: shuttle.shuttleNumber,
+    }];
+  });
+}
+
+function routeMatchesJourney(route, pickup, destination) {
+  const stops = route.stops.map((stop) => stop.toLowerCase());
+  const pickupText = pickup.trim().toLowerCase();
+  const destinationText = destination.trim().toLowerCase();
+  const pickupIndex = pickupText
+    ? stops.findIndex((stop) => stop.includes(pickupText) || pickupText.includes(stop))
+    : 0;
+  const destinationIndex = destinationText
+    ? stops.findIndex((stop) => stop.includes(destinationText) || destinationText.includes(stop))
+    : stops.length - 1;
+
+  return pickupIndex >= 0 && destinationIndex >= 0 && destinationIndex !== pickupIndex;
+}
 
 export default function StudentDashboard() {
   // Journey search state
   const [pickup, setPickup] = useState('Boys Hostel');
   const [destination, setDestination] = useState('Main Gate');
   const [searchTriggered, setSearchTriggered] = useState(false);
+  const [availableRoutes, setAvailableRoutes] = useState([]);
+  const [fleetReady, setFleetReady] = useState(false);
 
-  // Mock shuttle data (will later come from MongoDB / Backend API for Module 1)
-  const availableRoutes = [
-    {
-      id: 'R1',
-      name: 'Route A: Hostel to Main Gate',
-      stops: ['Boys Hostel', 'Library', 'Main Gate'],
-      eta: '5 min',
-      capacity: '12 / 30',
-      crowdLevel: 'Low',
-      status: 'Running',
-      shuttleId: 'SH-01'
-    },
-    {
-      id: 'R2',
-      name: 'Route B: Academic Loop',
-      stops: ['Boys Hostel', 'Academic Block', 'Main Gate'],
-      eta: '8 min',
-      capacity: '27 / 30',
-      crowdLevel: 'High',
-      status: 'Running',
-      shuttleId: 'SH-02'
+  useEffect(() => {
+    function refreshFleet() {
+      setAvailableRoutes(getStudentShuttleRoutes());
+      setFleetReady(true);
     }
-  ];
+
+    refreshFleet();
+    window.addEventListener('storage', refreshFleet);
+    window.addEventListener('focus', refreshFleet);
+
+    return () => {
+      window.removeEventListener('storage', refreshFleet);
+      window.removeEventListener('focus', refreshFleet);
+    };
+  }, []);
+
+  const matchingRoutes = searchTriggered
+    ? availableRoutes.filter((route) => routeMatchesJourney(route, pickup, destination))
+    : availableRoutes;
 
   return (
     <main className="min-h-screen bg-white text-black selection:bg-black selection:text-white flex flex-col">
@@ -66,7 +113,7 @@ export default function StudentDashboard() {
           <div>
             <span className="text-xs font-mono uppercase tracking-widest text-gray-400">Module 01</span>
             <h1 className="text-2xl font-bold tracking-tight mt-1">Journey Planner</h1>
-            <p className="text-xs text-gray-500 font-mono mt-1">Search campus stops and view live shuttle ETAs.</p>
+            <p className="text-xs text-gray-500 font-mono mt-1">Search campus stops and check shuttle status and seating.</p>
           </div>
 
           {/* Search Inputs Card */}
@@ -112,18 +159,25 @@ export default function StudentDashboard() {
           {/* Available Routes Results */}
           <div className="space-y-4">
             <h2 className="text-xs font-mono uppercase tracking-wider text-gray-400">
-              {searchTriggered ? 'Matching Routes Found' : 'Active Campus Shuttles'}
+              {searchTriggered ? 'Matching Routes Found' : 'Campus Shuttle Fleet'}
             </h2>
 
-            {availableRoutes.map((route) => (
+            {!fleetReady && <p className="border border-gray-200 p-4 text-sm text-gray-500">Loading shuttle data…</p>}
+            {fleetReady && matchingRoutes.length === 0 && (
+              <p className="border border-gray-200 p-4 text-sm text-gray-500">
+                {searchTriggered ? 'No route serves both of those stops.' : 'No shuttle routes are available.'}
+              </p>
+            )}
+
+            {matchingRoutes.map((route) => (
               <div key={route.id} className="border border-gray-200 bg-white p-4 space-y-3 hover:border-black transition">
                 <div className="flex justify-between items-start">
                   <div>
-                    <span className="text-[10px] font-mono bg-gray-100 px-2 py-0.5 font-bold">{route.id}</span>
+                    <span className="text-[10px] font-mono bg-gray-100 px-2 py-0.5 font-bold">{route.shuttleId} · {route.id}</span>
                     <h3 className="text-sm font-bold mt-1">{route.name}</h3>
                   </div>
-                  <span className="text-xs font-mono font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5">
-                    ETA: {route.eta}
+                  <span className="text-xs font-mono font-bold bg-gray-100 px-2 py-0.5">
+                    {route.status.replaceAll('_', ' ')}
                   </span>
                 </div>
 
@@ -134,7 +188,7 @@ export default function StudentDashboard() {
                 <div className="border-t border-gray-100 pt-3 flex justify-between items-center text-xs font-mono">
                   <div>
                     <span className="text-gray-400">Capacity: </span>
-                    <span className="font-bold text-black">{route.capacity} seats</span>
+                    <span className="font-bold text-black">{route.occupiedSeats} / {route.capacity} seats</span>
                   </div>
                   <div>
                     <span className="text-gray-400">Crowd: </span>
