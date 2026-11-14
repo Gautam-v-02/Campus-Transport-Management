@@ -1,29 +1,43 @@
-﻿import mongoose from 'mongoose';
+import "server-only";
+import mongoose from "mongoose";
 
-const MONGODB_URI = process.env.MONGODB_URI;
+const globalForMongo = globalThis;
 
-let cached = global.mongoose;
-
-if (!cached) {
-  cached = global.mongoose = { conn: null, promise: null };
+function getMongoCache() {
+  if (!globalForMongo.campusMongoose) {
+    globalForMongo.campusMongoose = { connection: null, promise: null };
+  }
+  return globalForMongo.campusMongoose;
 }
 
-async function dbConnect() {
-  if (!MONGODB_URI) {
-    throw new Error('Please define MONGODB_URI inside .env.local');
+async function connectMongo() {
+  const uri = process.env.MONGODB_URI;
+  if (!uri) throw new Error("MONGODB_URI is not configured.");
+
+  const cache = getMongoCache();
+  if (cache.connection?.connection.readyState === 1) return cache.connection;
+
+  if (!cache.promise) {
+    cache.promise = mongoose.connect(uri, {
+      bufferCommands: false,
+      dbName: process.env.MONGODB_DB || undefined,
+      serverSelectionTimeoutMS: 5000,
+    }).catch((error) => {
+      cache.promise = null;
+      throw error;
+    });
   }
 
-  if (cached.conn) {
-    return cached.conn;
-  }
-
-  if (!cached.promise) {
-    const opts = { bufferCommands: false };
-    cached.promise = mongoose.connect(MONGODB_URI, opts);
-  }
-
-  cached.conn = await cached.promise;
-  return cached.conn;
+  cache.connection = await cache.promise;
+  return cache.connection;
 }
 
-export default dbConnect;
+export default connectMongo;
+
+// Driver APIs use the native MongoDB collection interface on this same connection.
+export async function getDatabase() {
+  await connectMongo();
+  const database = mongoose.connection.db;
+  if (!database) throw new Error("MongoDB connection is not ready.");
+  return database;
+}

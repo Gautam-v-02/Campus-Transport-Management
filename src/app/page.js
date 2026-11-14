@@ -21,6 +21,12 @@ export default function Home() {
         </div>
 
         <div className="flex items-center gap-6">
+          <a
+            href="/last-mile"
+            className="text-xs font-medium text-gray-600 hover:text-black transition"
+          >
+            Last-mile rides
+          </a>
           <a href="#about" className="text-xs font-medium text-gray-500 hover:text-black transition">
             About
           </a>
@@ -63,6 +69,12 @@ export default function Home() {
               className="border border-gray-200 px-6 py-3 text-xs font-medium text-gray-600 hover:text-black hover:border-black transition"
             >
               System Specs
+            </a>
+            <a
+              href="/last-mile"
+              className="border border-gray-200 px-6 py-3 text-xs font-medium text-gray-600 hover:text-black hover:border-black transition"
+            >
+              Browse Last-mile Rides →
             </a>
           </div>
         </div>

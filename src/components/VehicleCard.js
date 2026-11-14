@@ -1,5 +1,6 @@
 // A simple ride card that keeps the essentials front and center.
 import Link from "next/link";
+import Image from "next/image";
 
 const STATUS = {
   available: { label: "Available", dot: "bg-cng", text: "text-cng" },
@@ -36,11 +37,12 @@ export default function VehicleCard({ v, badges = [] }) {
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 items-center gap-3">
           {v.photo ? (
-            <img
+            <Image
               src={v.photo}
               alt={`${isAuto ? "Auto" : "E-rickshaw"} ${v.id}`}
               width={48}
               height={48}
+              unoptimized
               className="h-12 w-12 shrink-0 rounded-xl object-cover"
             />
           ) : (

@@ -1,44 +1,35 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import {
-  clearCurrentDriverId,
-  finishDriverTrip,
-  getCrowdLevel,
-  getCurrentDriverId,
-  getDriverActiveTrip,
-  getDriverAssignments,
-  getReports,
-  getRoutes,
-  getShuttles,
-  getTrips,
-  saveIncidentReport,
-  startDriverTrip,
-  updateDriverTrip,
-  updateShuttleOccupancy,
-} from "@/lib/mockStore";
+import { getCrowdLevel } from "@/lib/transport";
 import { StatCard } from "./components/StatCard";
 import { TripPanel } from "./components/TripPanel";
 import { ShuttlePanel } from "./components/ShuttlePanel";
 import { RoutePanel } from "./components/RoutePanel";
 import { ReportsPanel } from "./components/ReportsPanel";
 import { HistoryPanel } from "./components/HistoryPanel";
+import { CampusMap } from "@/components/CampusMap";
 
-const DEMO_DRIVER_ID = "DRV001";
+function distanceBetweenMeters(first, second) {
+  const latitudeMeters = (first.latitude - second.latitude) * 111_320;
+  const averageLatitude = ((first.latitude + second.latitude) / 2) * (Math.PI / 180);
+  const longitudeMeters =
+    (first.longitude - second.longitude) * 111_320 * Math.cos(averageLatitude);
+
+  return Math.hypot(latitudeMeters, longitudeMeters);
+}
 
 export default function DriverDashboard() {
   const router = useRouter();
-  const [driverId, setDriverId] = useState(DEMO_DRIVER_ID);
+  const [workspace, setWorkspace] = useState(null);
+  const [workspaceError, setWorkspaceError] = useState("");
   const [sessionReady, setSessionReady] = useState(false);
-  const assignments = getDriverAssignments(driverId);
   const [tripStatus, setTripStatus] = useState("NOT_STARTED");
   const [completedStops, setCompletedStops] = useState(0);
-  const [occupiedSeats, setOccupiedSeats] = useState(25);
+  const [occupiedSeats, setOccupiedSeats] = useState(0);
   const [tripStartTime, setTripStartTime] = useState("");
-  const [incidentReports, setIncidentReports] = useState(() =>
-    getReports().filter((report) => report.driverId === DEMO_DRIVER_ID),
-  );
+  const [incidentReports, setIncidentReports] = useState([]);
   const [delayReason, setDelayReason] = useState("TRAFFIC_CONGESTION");
   const [delayMinutes, setDelayMinutes] = useState(10);
   const [delayDescription, setDelayDescription] = useState("");
@@ -47,58 +38,180 @@ export default function DriverDashboard() {
   const [historyDate, setHistoryDate] = useState("");
   const [historyStatus, setHistoryStatus] = useState("ALL");
   const [activeTripId, setActiveTripId] = useState(null);
+  const [gpsStatus, setGpsStatus] = useState("IDLE");
+  const [gpsMessage, setGpsMessage] = useState("");
+  const [gpsPosition, setGpsPosition] = useState(null);
+  const [isOnline, setIsOnline] = useState(null);
+  const lastAcceptedPosition = useRef(null);
+  const tripActionPending = useRef(false);
 
-  // Read browser-only login and saved trip data after the first render.
   useEffect(() => {
-    const savedDriverId = getCurrentDriverId();
-    if (!savedDriverId) {
-      router.replace("/driver/login");
-      return;
+    let isCancelled = false;
+
+    async function loadDriverWorkspace() {
+      try {
+        const sessionResponse = await fetch("/api/driver/session");
+        if (!sessionResponse.ok) {
+          router.replace("/driver/login");
+          return;
+        }
+        const response = await fetch("/api/driver/workspace");
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Could not load driver workspace.");
+        if (isCancelled) return;
+        setWorkspace(data);
+        setOccupiedSeats(data.shuttle.occupiedSeats || 0);
+        setIncidentReports(data.reports);
+        if (data.latestLocation) {
+          const savedPosition = {
+            latitude: data.latestLocation.latitude,
+            longitude: data.latestLocation.longitude,
+            accuracy: data.latestLocation.accuracy,
+            speed: data.latestLocation.speed,
+            timestamp: new Date(data.latestLocation.timestamp).getTime(),
+          };
+          lastAcceptedPosition.current = savedPosition;
+          setGpsPosition(savedPosition);
+        }
+        const savedActiveTrip = data.trips.find((trip) => ["IN_PROGRESS", "DELAYED"].includes(trip.status));
+        if (savedActiveTrip) {
+          setActiveTripId(savedActiveTrip.id);
+          setTripStatus(savedActiveTrip.status);
+          setCompletedStops(savedActiveTrip.completedStops || 0);
+          setTripStartTime(new Date(savedActiveTrip.startTime).toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+          }));
+        }
+      } catch (error) {
+        if (!isCancelled) setWorkspaceError(error.message || "Could not load driver workspace.");
+      } finally {
+        if (!isCancelled) setSessionReady(true);
+      }
     }
 
-    const savedAssignment = getDriverAssignments(savedDriverId);
-    if (!savedAssignment) {
-      clearCurrentDriverId();
-      router.replace("/driver/login");
-      return;
-    }
-
-    const savedActiveTrip = getDriverActiveTrip(savedDriverId);
-    // localStorage cannot be read until the component runs in the browser.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setDriverId(savedDriverId);
-    setOccupiedSeats(savedAssignment.shuttle.occupiedSeats);
-    setIncidentReports(getReports().filter((report) => report.driverId === savedDriverId));
-    if (savedActiveTrip) {
-      setActiveTripId(savedActiveTrip.id);
-      setTripStatus(savedActiveTrip.status);
-      setCompletedStops(savedActiveTrip.completedStops);
-      setTripStartTime(new Date(savedActiveTrip.startTime).toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-      }));
-    }
-    setSessionReady(true);
+    loadDriverWorkspace();
+    return () => {
+      isCancelled = true;
+    };
   }, [router]);
+
+  useEffect(() => {
+    function updateNetworkStatus() {
+      setIsOnline(navigator.onLine);
+    }
+
+    updateNetworkStatus();
+    window.addEventListener("online", updateNetworkStatus);
+    window.addEventListener("offline", updateNetworkStatus);
+
+    return () => {
+      window.removeEventListener("online", updateNetworkStatus);
+      window.removeEventListener("offline", updateNetworkStatus);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!sessionReady || !activeTripId || !["IN_PROGRESS", "DELAYED"].includes(tripStatus)) return;
+
+    if (!navigator.geolocation) {
+      // This branch reports a missing browser capability from the effect.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setGpsStatus("UNAVAILABLE");
+      setGpsMessage("This browser does not provide GPS location.");
+      return;
+    }
+
+    setGpsStatus("REQUESTING");
+    setGpsMessage("");
+    lastAcceptedPosition.current = null;
+
+    let watchId;
+    try {
+      watchId = navigator.geolocation.watchPosition(
+      (position) => {
+        const nextPosition = {
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+          accuracy: position.coords.accuracy,
+          speed: position.coords.speed,
+          timestamp: position.timestamp || Date.now(),
+        };
+        const previousPosition = lastAcceptedPosition.current;
+
+        if (previousPosition) {
+          const movedMeters = distanceBetweenMeters(previousPosition, nextPosition);
+          const elapsedMs = nextPosition.timestamp - previousPosition.timestamp;
+          // Ignore tiny, immediate GPS variations to avoid unnecessary updates.
+          if (movedMeters < 5 && elapsedMs < 5000) return;
+        }
+
+        lastAcceptedPosition.current = nextPosition;
+        setGpsPosition(nextPosition);
+        setGpsStatus("ACTIVE");
+        fetch("/api/driver/location", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ...nextPosition, tripId: activeTripId }),
+        })
+          .then(async (response) => {
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.error || "Could not save GPS location.");
+            setGpsMessage("");
+          })
+          .catch(() => {
+            setGpsMessage("Could not save this GPS reading. Check your connection and MongoDB setup; the next reading will retry.");
+          });
+      },
+      (error) => {
+        const errorMessages = {
+          1: "Location permission was denied. Allow location access in your browser settings.",
+          2: "The device could not determine its location. Check GPS settings and try again.",
+          3: "The location request timed out. Keep the page open and wait for another reading.",
+        };
+        setGpsStatus(error.code === 1 ? "PERMISSION_DENIED" : "ERROR");
+        setGpsMessage(errorMessages[error.code] || "The GPS location could not be read.");
+      },
+      {
+        enableHighAccuracy: true,
+        maximumAge: 5000,
+        timeout: 15000,
+      },
+      );
+    } catch {
+      setGpsStatus("ERROR");
+      setGpsMessage("The browser could not start GPS tracking. Check location permissions and use HTTPS or localhost.");
+      return;
+    }
+
+    return () => navigator.geolocation.clearWatch(watchId);
+  }, [activeTripId, sessionReady, tripStatus]);
 
   if (!sessionReady) {
     return <main className="p-8 text-gray-600">Opening driver workspace…</main>;
   }
 
-  if (!assignments) {
-    return <main className="p-8">No driver assignment was found.</main>;
+  if (!workspace) {
+    return (
+      <main className="mx-auto max-w-xl p-8">
+        <h1 className="text-xl font-bold">Could not open driver workspace</h1>
+        <p role="alert" className="mt-2 text-gray-600">{workspaceError || "No driver assignment was found."}</p>
+        <button onClick={() => window.location.reload()} className="mt-5 rounded-lg bg-black px-4 py-2 text-white">Try again</button>
+        <button onClick={logOut} className="ml-3 mt-5 rounded-lg border px-4 py-2">Sign out</button>
+      </main>
+    );
   }
 
-  const { driver, shuttle, route } = assignments;
+  const { driver, shuttle, route } = workspace;
   const availableSeats = shuttle.capacity - occupiedSeats;
-  const driverTrips = getTrips().filter((trip) => trip.driverId === driver.id);
+  const driverTrips = workspace.trips;
   const completedTrips = driverTrips.filter((trip) => trip.status === "COMPLETED").length;
-  const shuttleRecords = getShuttles();
-  const routeRecords = getRoutes();
+  const shuttleRecords = [shuttle];
+  const routeRecords = [route];
   const activeTrips = driverTrips.filter((trip) =>
     ["IN_PROGRESS", "DELAYED"].includes(trip.status),
   ).length;
-  const tripHistory = getTrips().filter((trip) => {
+  const tripHistory = driverTrips.filter((trip) => {
     if (trip.driverId !== driver.id) {
       return false;
     }
@@ -122,75 +235,160 @@ export default function DriverDashboard() {
   });
 
   const crowdLevel = getCrowdLevel(occupiedSeats, shuttle.capacity);
+  const tripIsActive = ["IN_PROGRESS", "DELAYED"].includes(tripStatus);
+  const visibleGpsStatus = tripIsActive
+    ? gpsStatus
+    : tripStatus === "COMPLETED" ? "STOPPED" : "NOT STARTED";
+  const networkStatus = isOnline === null ? "CHECKING" : isOnline ? "ONLINE" : "OFFLINE";
 
-  function startTrip() {
-    const newTrip = startDriverTrip(driver.id);
-    if (!newTrip) return;
-    setActiveTripId(newTrip.id);
-    setTripStartTime(new Date().toLocaleTimeString([], {
-      hour: "2-digit",
-      minute: "2-digit",
-    }));
-    setCompletedStops(0);
-    setTripStatus("IN_PROGRESS");
-  }
+  async function startTrip() {
+    if (tripActionPending.current) return;
+    tripActionPending.current = true;
 
-  function markStopReached() {
-    if (completedStops < route.stops.length) {
-      const nextCompletedStops = completedStops + 1;
-      setCompletedStops(nextCompletedStops);
-      if (activeTripId) {
-        updateDriverTrip(activeTripId, { completedStops: nextCompletedStops });
-      }
+    const tripId = `TRIP-${crypto.randomUUID()}`;
+    try {
+      const response = await fetch("/api/driver/trips", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "start", tripId }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Could not start trip.");
+
+      const newTrip = { id: tripId, driverId: driver.id, shuttleId: shuttle.id, routeId: route.id,
+        status: "IN_PROGRESS", startTime: new Date(), endTime: null, completedStops: 0 };
+      setWorkspace((current) => ({ ...current, trips: [newTrip, ...current.trips], shuttle: { ...current.shuttle, status: "IN_SERVICE" } }));
+
+      setGpsPosition(null);
+      setGpsStatus("REQUESTING");
+      setGpsMessage("");
+      setActiveTripId(newTrip.id);
+      setTripStartTime(new Date().toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      }));
+      setCompletedStops(0);
+      setTripStatus("IN_PROGRESS");
+    } catch (error) {
+      setGpsMessage(error.message || "Could not start trip. Check your database connection.");
+    } finally {
+      tripActionPending.current = false;
     }
   }
 
-  function completeTrip() {
-    if (activeTripId) finishDriverTrip(activeTripId);
-    setTripStatus("COMPLETED");
+  async function markStopReached() {
+    if (completedStops >= route.stops.length || !activeTripId || tripActionPending.current) return;
+    tripActionPending.current = true;
+    try {
+      const response = await fetch("/api/driver/workspace", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "stop", tripId: activeTripId }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Could not update stop progress.");
+      setCompletedStops(result.completedStops);
+      setWorkspace((current) => ({ ...current, trips: current.trips.map((trip) =>
+        trip.id === activeTripId ? { ...trip, completedStops: result.completedStops } : trip) }));
+      setGpsMessage("");
+    } catch (error) { setGpsMessage(error.message || "Could not update stop progress."); }
+    finally { tripActionPending.current = false; }
   }
 
-  function reportDelay(event) {
-    event.preventDefault();
+  async function completeTrip() {
+    if (!activeTripId || tripActionPending.current) return;
+    tripActionPending.current = true;
 
+    try {
+      const response = await fetch("/api/driver/trips", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "end", tripId: activeTripId }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Could not end trip.");
+
+      setWorkspace((current) => ({ ...current, trips: current.trips.map((trip) => trip.id === activeTripId
+        ? { ...trip, status: "COMPLETED", endTime: new Date() } : trip), shuttle: { ...current.shuttle, status: "AVAILABLE" } }));
+      setTripStatus("COMPLETED");
+      setGpsMessage("");
+    } catch (error) {
+      setGpsMessage(error.message || "Could not end trip. Check your database connection.");
+    } finally {
+      tripActionPending.current = false;
+    }
+  }
+
+  async function reportDelay(event) {
+    event.preventDefault();
+    if (!activeTripId || tripActionPending.current) return;
+    tripActionPending.current = true;
     const newReport = {
-      id: `REPORT-${getReports().length + 1}`,
-      driverId: driver.id,
-      tripId: activeTripId,
       category: delayReason,
       description: delayDescription.trim() || "No additional details provided.",
       estimatedDelayMinutes: Number(delayMinutes),
-      reportedAt: new Date().toISOString(),
+      tripId: activeTripId,
     };
-
-    setIncidentReports(
-      saveIncidentReport(newReport).filter((report) => report.driverId === driver.id),
-    );
-    if (tripStatus === "IN_PROGRESS") {
-      setTripStatus("DELAYED");
-      if (activeTripId) {
-        updateDriverTrip(activeTripId, { status: "DELAYED", delay: newReport });
-      }
+    try {
+      const response = await fetch("/api/driver/workspace", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "report", tripId: activeTripId, report: newReport }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Could not save incident report.");
+      setIncidentReports((current) => [result.report, ...current]);
+      setWorkspace((current) => ({ ...current, reports: [result.report, ...current.reports], trips: current.trips.map((trip) =>
+        trip.id === activeTripId ? { ...trip, status: result.status, delay: result.report } : trip) }));
+      setTripStatus(result.status);
+      setReportMessage("Incident report saved.");
+      setDelayDescription("");
+      setGpsMessage("");
+    } catch (error) {
+      setReportMessage(error.message || "Could not save incident report.");
+    } finally {
+      tripActionPending.current = false;
     }
-    setReportMessage("Incident report saved for this session.");
-    setDelayDescription("");
   }
 
-  function resumeTrip() {
-    setTripStatus("IN_PROGRESS");
-    if (activeTripId) updateDriverTrip(activeTripId, { status: "IN_PROGRESS" });
+  async function resumeTrip() {
+    if (!activeTripId || tripActionPending.current) return;
+    tripActionPending.current = true;
+    try {
+      const response = await fetch("/api/driver/workspace", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "resume", tripId: activeTripId }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Could not resume trip.");
+      setTripStatus(result.status);
+      setWorkspace((current) => ({ ...current, trips: current.trips.map((trip) => trip.id === activeTripId ? { ...trip, status: result.status } : trip) }));
+      setGpsMessage("");
+    } catch (error) { setGpsMessage(error.message || "Could not resume trip."); }
+    finally { tripActionPending.current = false; }
   }
 
-  function changeOccupancy(amount) {
+  async function changeOccupancy(amount) {
     const nextValue = occupiedSeats + amount;
-    if (nextValue >= 0 && nextValue <= shuttle.capacity) {
-      setOccupiedSeats(nextValue);
-      updateShuttleOccupancy(shuttle.id, nextValue);
+    if (nextValue >= 0 && nextValue <= shuttle.capacity && !tripActionPending.current) {
+      tripActionPending.current = true;
+      try {
+        const response = await fetch("/api/driver/workspace", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "occupancy", occupiedSeats: nextValue }),
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || "Could not update passenger count.");
+        setOccupiedSeats(result.occupiedSeats);
+        setWorkspace((current) => ({ ...current, shuttle: { ...current.shuttle, occupiedSeats: result.occupiedSeats } }));
+        setGpsMessage("");
+      } catch (error) { setGpsMessage(error.message || "Could not update passenger count."); }
+      finally { tripActionPending.current = false; }
     }
   }
 
-  function logOut() {
-    clearCurrentDriverId();
+  async function logOut() {
+    try {
+      await fetch("/api/driver/session", { method: "DELETE" });
+    } catch { /* Redirect even when the session endpoint is unreachable. */ }
     router.replace("/driver/login");
   }
 
@@ -270,8 +468,8 @@ export default function DriverDashboard() {
           <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
             <StatCard label="Assigned shuttle" value={shuttle.shuttleNumber} detail={shuttle.registrationNumber} icon="🚌" />
             <StatCard label="Total trips" value={driverTrips.length} detail="All trip records" icon="↗" />
-            <StatCard label="Completed trips" value={completedTrips} detail="Demo trip records" icon="✓" />
-            <StatCard label="Active trips" value={activeTrips} detail={tripStartTime ? `Started at ${tripStartTime}` : "No active trip"} icon="◷" />
+            <StatCard label="Completed trips" value={completedTrips} detail="Completed journeys" icon="✓" />
+            <StatCard label="Active trips" value={activeTrips} detail={activeTrips && tripStartTime ? `Started at ${tripStartTime}` : "No active trip"} icon="◷" />
             <StatCard label="Crowd level" value={crowdLevel} detail={`${occupiedSeats} of ${shuttle.capacity} seats occupied`} icon="👥" />
           </section>
 
@@ -289,6 +487,40 @@ export default function DriverDashboard() {
               availableSeats={availableSeats}
               onChangeOccupancy={changeOccupancy}
             />
+          </section>
+
+          <section className="space-y-3">
+            <div>
+              <p className="text-sm text-gray-500">Campus map</p>
+              <h2 className="mt-1 text-xl font-bold">Lovely Professional University</h2>
+              <p className="mt-1 text-sm text-gray-500">
+                Stop markers are sample locations. The dashed line is a schematic of the documented main-gate-to-campus-centre service, not a verified road path.
+              </p>
+            </div>
+            <article className="border border-gray-200 bg-white p-4">
+              <div className="flex flex-wrap gap-x-6 gap-y-2 text-xs font-mono">
+                <p>GPS: <span className="font-bold">{visibleGpsStatus.replaceAll("_", " ")}</span></p>
+                <p>NETWORK: <span className={`font-bold ${isOnline === false ? "text-red-700" : "text-gray-900"}`}>{networkStatus}</span></p>
+              </div>
+              {gpsPosition ? (
+                <p className="mt-2 text-xs text-gray-600">
+                  {gpsPosition.latitude.toFixed(6)}, {gpsPosition.longitude.toFixed(6)}
+                  <span className="ml-2">±{Math.round(gpsPosition.accuracy)} m</span>
+                  <span className="ml-2">Updated {new Date(gpsPosition.timestamp).toLocaleTimeString()}</span>
+                </p>
+              ) : (
+                <p className="mt-2 text-xs text-gray-500">
+                  {tripIsActive ? "Waiting for the first GPS reading…" : "Start a trip to request the device location."}
+                </p>
+              )}
+              {gpsMessage && <p role="alert" className="mt-2 text-sm text-red-700">{gpsMessage}</p>}
+              {isOnline === false && (
+                <p role="status" className="mt-2 text-sm text-amber-800">
+                  Internet is disconnected. The current reading stays in this page; the next GPS reading will retry after reconnecting.
+                </p>
+              )}
+            </article>
+            <CampusMap position={gpsPosition} trackingStatus={visibleGpsStatus} />
           </section>
 
           <RoutePanel

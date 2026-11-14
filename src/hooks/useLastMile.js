@@ -14,6 +14,7 @@ export default function useLastMile({ stop, destination, type, refreshMs = 10000
     let cancelled = false; // ignore an answer that arrives after the choice has changed
 
     async function load() {
+      setLoading(true);
       try {
         const qs = new URLSearchParams({ stop, destination, type });
         const res = await fetch(`/api/last-mile?${qs}`, { cache: "no-store" });
@@ -30,7 +31,6 @@ export default function useLastMile({ stop, destination, type, refreshMs = 10000
       }
     }
 
-    setLoading(true);
     load();
     const id = setInterval(load, refreshMs);
 

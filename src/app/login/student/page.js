@@ -8,6 +8,7 @@ import {
   getShuttles,
   getTrips,
 } from '@/lib/mockStore';
+import { CampusMap } from '@/components/CampusMap';
 
 function getStudentShuttleRoutes() {
   const drivers = getDrivers();
@@ -89,7 +90,7 @@ export default function StudentDashboard() {
             CT
           </div>
           <span className="font-semibold tracking-tight text-sm">
-            CampusTransit <span className="text-gray-400 font-mono text-xs">// Module 1: Student Transport</span>
+            CampusTransit <span className="text-gray-400 font-mono text-xs">{"// Module 1: Student Transport"}</span>
           </span>
         </div>
 
@@ -206,36 +207,21 @@ export default function StudentDashboard() {
           
           <div className="flex justify-between items-center z-10">
             <div>
-              <span className="text-xs font-mono uppercase tracking-wider text-gray-400">Geospatial Feed</span>
-              <h3 className="text-sm font-bold font-mono">Campus Map & Shuttle Live Tracking</h3>
+              <span className="text-xs font-mono uppercase tracking-wider text-gray-400">Campus Map</span>
+              <h3 className="text-sm font-bold font-mono">Lovely Professional University</h3>
             </div>
-            <div className="flex items-center gap-2 bg-white border border-gray-200 px-3 py-1.5 text-xs font-mono">
-              <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
-              <span>LIVE_FEED_ACTIVE</span>
+            <div className="bg-white border border-gray-200 px-3 py-1.5 text-xs font-mono text-gray-500">
+              OPENSTREETMAP
             </div>
           </div>
 
-          {/* Map Placeholder / Leaflet Integration Area */}
-          <div className="my-auto border border-gray-200 bg-white p-12 text-center relative overflow-hidden my-8">
-            <div className="absolute inset-0 opacity-5 bg-[radial-gradient(#000_1px,transparent_1px)] [background-size:16px_16px]"></div>
-            
-            <div className="relative z-10 max-w-sm mx-auto space-y-3">
-              <div className="text-4xl">🗺️</div>
-              <h4 className="text-sm font-bold font-mono">Interactive Leaflet Map Canvas</h4>
-              <p className="text-xs text-gray-500">
-                Campus stops (Main Gate, Hostels, Academic Block) and active shuttle markers will render here.
-              </p>
-              <div className="pt-2">
-                <span className="inline-block bg-black text-white text-[10px] font-mono px-3 py-1 uppercase tracking-widest">
-                  Module 1 Canvas Ready
-                </span>
-              </div>
-            </div>
-          </div>
+          <CampusMap className="my-8" />
 
           <div className="flex justify-between items-center text-xs font-mono text-gray-400 z-10">
-            <p>LAT: 31.2550° N, LNG: 75.7040° E</p>
-            <p>SYSTEM_STATUS: OPERATIONAL</p>
+            <p>SAMPLE STOPS · SCHEMATIC ROUTE</p>
+            <a href="https://www.openstreetmap.org/node/1406003115" target="_blank" rel="noreferrer" className="underline hover:text-black">
+              VIEW MAP SOURCE
+            </a>
           </div>
 
         </div>
