@@ -1,5 +1,5 @@
 // Demonstration accounts for the driver module.
-// The password is only used for the local mock login, not real authentication.
+// These demonstration credentials are only for the prototype, not production accounts.
 export const drivers = [
   {
     id: "DRV001",

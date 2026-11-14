@@ -3,7 +3,7 @@ export function RoutePanel({ route, completedStops, tripStatus }) {
     <section id="route" className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
       <div className="flex flex-wrap items-end justify-between gap-2">
         <div><p className="text-sm text-gray-500">Route management</p><h3 className="mt-1 text-xl font-bold">Stops on {route.routeName}</h3></div>
-        <p className="text-sm text-gray-500">Manual updates · GPS not connected</p>
+        <p className="text-sm text-gray-500">Mark stops as your shuttle reaches them</p>
       </div>
       <ol className="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         {route.stops.map((stop, index) => {

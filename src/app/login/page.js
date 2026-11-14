@@ -1,15 +1,17 @@
+import Link from "next/link";
+
 export default function LoginPage() {
   return (
     <main className="min-h-screen bg-white text-black selection:bg-black selection:text-white flex flex-col justify-between px-6 py-8">
 
       {/* Top Bar */}
       <div className="mx-auto w-full max-w-4xl flex items-center justify-between">
-        <a
+        <Link
           href="/"
           className="text-xs font-mono text-gray-500 hover:text-black transition flex items-center gap-2"
         >
           ← BACK_TO_HOME
-        </a>
+        </Link>
         <span className="text-xs font-mono text-gray-400">AUTH_GATEWAY // V1.0</span>
       </div>
 
@@ -29,7 +31,7 @@ export default function LoginPage() {
         <div className="grid gap-4 md:grid-cols-2">
 
           {/* Student Card */}
-          <a
+          <Link
             href="/login/student"
             className="group border border-gray-200 bg-white p-8 transition hover:border-black flex flex-col justify-between"
           >
@@ -52,10 +54,10 @@ export default function LoginPage() {
               <span>ACCESS_STUDENT_PORTAL</span>
               <span className="transition group-hover:translate-x-1">→</span>
             </div>
-          </a>
+          </Link>
 
           {/* Driver Card */}
-          <a
+          <Link
             href="/login/driver"
             className="group border border-gray-200 bg-white p-8 transition hover:border-black flex flex-col justify-between"
           >
@@ -78,7 +80,7 @@ export default function LoginPage() {
               <span>ACCESS_DRIVER_PORTAL</span>
               <span className="transition group-hover:translate-x-1">→</span>
             </div>
-          </a>
+          </Link>
 
         </div>
       </div>

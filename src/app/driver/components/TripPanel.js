@@ -24,7 +24,7 @@ export function TripPanel({ route, status, completedStops, onMarkStop, onComplet
 
       {status === "IN_PROGRESS" && completedStops < totalStops && <button onClick={onMarkStop} className="mt-5 rounded-lg border border-black px-4 py-2.5 text-sm font-semibold text-black hover:bg-gray-100">Mark stop as reached</button>}
       {status === "DELAYED" && <p className="mt-5 rounded-lg bg-amber-50 p-3 text-sm text-amber-800">This trip is delayed. Resume it when it is safe to continue.</p>}
-      {status === "IN_PROGRESS" && completedStops === totalStops && <button onClick={onComplete} className="mt-5 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700">Complete trip</button>}
+      {["IN_PROGRESS", "DELAYED"].includes(status) && <button onClick={onComplete} className="mt-5 rounded-lg bg-black px-4 py-2.5 text-sm font-semibold text-white hover:bg-gray-800">End trip</button>}
       {status === "NOT_STARTED" && <p className="mt-5 text-sm text-gray-500">Start the trip to record progress through the stops.</p>}
     </article>
   );

@@ -2,34 +2,46 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { getCurrentDriverId, getDrivers, setCurrentDriverId } from "@/lib/mockStore";
 
 export default function DriverLogin() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    if (getCurrentDriverId()) router.replace("/driver");
+    let isCancelled = false;
+
+    fetch("/api/driver/session")
+      .then((response) => { if (response.ok && !isCancelled) router.replace("/driver"); })
+      .catch(() => {});
+    return () => {
+      isCancelled = true;
+    };
   }, [router]);
+
+  async function submitLogin(loginEmail, loginPassword) {
+    setErrorMessage("");
+    setIsSubmitting(true);
+    try {
+      const response = await fetch("/api/driver/session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: loginEmail.trim(), password: loginPassword }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Email or password is incorrect.");
+      router.push("/driver");
+    } catch (error) {
+      setErrorMessage(error.message || "Could not sign in. Check your connection and try again.");
+      setIsSubmitting(false);
+    }
+  }
 
   function handleLogin(event) {
     event.preventDefault();
-    setErrorMessage("");
-
-    const driver = getDrivers().find((item) =>
-      item.email.toLowerCase() === email.trim().toLowerCase()
-      && item.password === password,
-    );
-
-    if (!driver) {
-      setErrorMessage("Email or password is incorrect.");
-      return;
-    }
-
-    setCurrentDriverId(driver.id);
-    router.push("/driver");
+    return submitLogin(email, password);
   }
 
   return (
@@ -42,13 +54,13 @@ export default function DriverLogin() {
             <h1 className="mt-3 text-3xl font-bold">Driver operations</h1>
             <p className="mt-4 leading-7 text-gray-300">Sign in to manage your assigned shuttle, trip progress, and incident reports.</p>
           </div>
-          <p className="text-sm text-gray-400">Demonstration login · Local mock data</p>
+          <p className="text-sm text-gray-400">Demonstration login · seeded driver accounts</p>
         </div>
 
         <div className="p-7 sm:p-10">
           <p className="text-sm font-semibold text-black">DRIVER MODULE</p>
           <h2 className="mt-2 text-2xl font-bold">Welcome back</h2>
-          <p className="mt-2 text-sm text-gray-500">Use one of the demonstration driver accounts.</p>
+          <p className="mt-2 text-sm text-gray-500">Sign in with your assigned driver account.</p>
 
           <form onSubmit={handleLogin} className="mt-7 space-y-5">
             <label className="block text-sm font-medium">Email address
@@ -58,11 +70,13 @@ export default function DriverLogin() {
               <input type="password" autoComplete="current-password" required value={password} onChange={(event) => setPassword(event.target.value)} className="mt-1.5 w-full rounded-lg border border-gray-300 px-3 py-2.5 outline-none focus:border-black focus:ring-2 focus:ring-gray-100" placeholder="Enter your password" />
             </label>
             {errorMessage && <p role="alert" className="text-sm text-red-700">{errorMessage}</p>}
-            <button type="submit" className="w-full rounded-lg bg-black px-4 py-3 font-semibold text-white hover:bg-gray-800">Sign in to driver workspace</button>
+            <button type="submit" disabled={isSubmitting} className="w-full rounded-lg bg-black px-4 py-3 font-semibold text-white hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-60">
+              {isSubmitting ? "Signing in…" : "Sign in to driver workspace"}
+            </button>
           </form>
 
           <div className="mt-7 rounded-xl bg-gray-50 p-4">
-            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Demo credentials</p>
+            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Prototype credentials</p>
             <p className="mt-2 text-sm text-gray-700">rahul@university.edu <span className="text-gray-400">·</span> 123456</p>
             <p className="mt-1 text-xs text-gray-500">All three demo drivers use password 123456.</p>
           </div>

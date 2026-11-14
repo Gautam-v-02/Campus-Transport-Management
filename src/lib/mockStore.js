@@ -5,6 +5,7 @@ import { shuttles } from "@/data/shuttles";
 import { routes } from "@/data/routes";
 import { trips } from "@/data/trips";
 import { reports } from "@/data/reports";
+export { getCrowdLevel } from "@/lib/transport";
 
 const storageKeys = {
   drivers: "campus-transport-drivers",
@@ -62,16 +63,6 @@ export function getDriverAssignments(driverId) {
   };
 }
 
-export function getCrowdLevel(occupiedSeats, capacity) {
-  if (capacity <= 0 || occupiedSeats <= 0) return "LOW";
-  if (occupiedSeats >= capacity) return "FULL";
-
-  const occupancyPercentage = occupiedSeats / capacity;
-  if (occupancyPercentage >= 0.7) return "HIGH";
-  if (occupancyPercentage >= 0.4) return "MODERATE";
-  return "LOW";
-}
-
 export function getCurrentDriverId() {
   if (typeof window === "undefined") return null;
   return window.localStorage.getItem(storageKeys.currentDriverId);
@@ -95,14 +86,14 @@ export function getDriverActiveTrip(driverId) {
   ) || null;
 }
 
-export function startDriverTrip(driverId) {
+export function startDriverTrip(driverId, tripId = `TRIP-${Date.now()}`) {
   if (getDriverActiveTrip(driverId)) return null;
 
   const assignment = getDriverAssignments(driverId);
   if (!assignment) return null;
 
   const newTrip = {
-    id: `TRIP-${Date.now()}`,
+    id: tripId,
     driverId,
     shuttleId: assignment.shuttle.id,
     routeId: assignment.route.id,
