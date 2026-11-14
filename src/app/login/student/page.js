@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   getCrowdLevel,
   getDrivers,
@@ -53,12 +54,40 @@ function routeMatchesJourney(route, pickup, destination) {
 }
 
 export default function StudentDashboard() {
+  const router = useRouter();
+  const [client, setClient] = useState(null);
+  const [authReady, setAuthReady] = useState(false);
+  const [authError, setAuthError] = useState('');
   // Journey search state
   const [pickup, setPickup] = useState('Boys Hostel');
   const [destination, setDestination] = useState('Main Gate');
   const [searchTriggered, setSearchTriggered] = useState(false);
   const [availableRoutes, setAvailableRoutes] = useState([]);
   const [fleetReady, setFleetReady] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function checkClientSession() {
+      try {
+        const response = await fetch('/api/client/session');
+        if (response.status === 401) {
+          router.replace('/client/login');
+          return;
+        }
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || 'Could not verify your account.');
+        if (!cancelled) setClient(result.client);
+      } catch (error) {
+        if (!cancelled) setAuthError(error.message || 'Could not verify your account.');
+      } finally {
+        if (!cancelled) setAuthReady(true);
+      }
+    }
+
+    checkClientSession();
+    return () => { cancelled = true; };
+  }, [router]);
 
   useEffect(() => {
     function refreshFleet() {
@@ -75,6 +104,27 @@ export default function StudentDashboard() {
       window.removeEventListener('focus', refreshFleet);
     };
   }, []);
+
+  async function logout() {
+    try {
+      await fetch('/api/client/session', { method: 'DELETE' });
+    } catch { /* Continue to account access even when offline. */ }
+    router.replace('/login');
+  }
+
+  if (!authReady) {
+    return <main className="p-8 text-sm text-gray-500">Verifying your client account…</main>;
+  }
+
+  if (!client) {
+    return (
+      <main className="mx-auto max-w-lg p-8">
+        <h1 className="text-xl font-bold">Client account required</h1>
+        <p role="alert" className="mt-2 text-sm text-gray-600">{authError || 'Please sign in to continue.'}</p>
+        <a href="/client/login" className="mt-5 inline-flex rounded-lg bg-black px-4 py-2.5 text-sm font-semibold text-white">Go to client sign in</a>
+      </main>
+    );
+  }
 
   const matchingRoutes = searchTriggered
     ? availableRoutes.filter((route) => routeMatchesJourney(route, pickup, destination))
@@ -95,13 +145,10 @@ export default function StudentDashboard() {
         </div>
 
         <div className="flex items-center gap-4 text-xs font-mono">
-          <span className="text-gray-500">USER: STUDENT</span>
-          <a
-            href="/login"
-            className="border border-gray-200 px-3 py-1.5 hover:border-black transition"
-          >
+          <span className="text-gray-500">USER: {client.name.toUpperCase()}</span>
+          <button type="button" onClick={logout} className="border border-gray-200 px-3 py-1.5 hover:border-black transition">
             Logout
-          </a>
+          </button>
         </div>
       </nav>
 
