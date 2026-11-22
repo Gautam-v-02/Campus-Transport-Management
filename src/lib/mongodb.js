@@ -15,7 +15,7 @@ async function connectMongo() {
   if (!uri) throw new Error("MONGODB_URI is not configured.");
 
   const cache = getMongoCache();
-  if (cache.connection?.connection.readyState === 1) return cache.connection;
+  if (mongoose.connection.readyState === 1) return cache.connection;
 
   if (!cache.promise) {
     cache.promise = mongoose.connect(uri, {

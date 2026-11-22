@@ -58,6 +58,7 @@ export default function StudentDashboard() {
   const [client, setClient] = useState(null);
   const [authReady, setAuthReady] = useState(false);
   const [authError, setAuthError] = useState('');
+  const [dbRoutes, setDbRoutes] = useState([]);
   // Journey search state
   const [pickup, setPickup] = useState('Boys Hostel');
   const [destination, setDestination] = useState('Main Gate');
@@ -130,6 +131,22 @@ export default function StudentDashboard() {
     ? availableRoutes.filter((route) => routeMatchesJourney(route, pickup, destination))
     : availableRoutes;
 
+async function handleSearch() {
+    setSearchTriggered(true);
+    try {
+      const query = new URLSearchParams({ from: pickup, to: destination }).toString();
+      const res = await fetch(`/api/routes?${query}`);
+      const json = await res.json();
+      if (res.ok && json.success) {
+        setDbRoutes(json.data || []);
+      } else {
+        setDbRoutes([]);
+      }
+    } catch {
+      setDbRoutes([]);
+    }
+  }
+
   return (
     <main className="min-h-screen bg-white text-black selection:bg-black selection:text-white flex flex-col">
 
@@ -196,8 +213,9 @@ export default function StudentDashboard() {
               </div>
             </div>
 
-            <button
-              onClick={() => setSearchTriggered(true)}
+           <button
+              type="button"
+              onClick={handleSearch}
               className="w-full bg-black text-white text-center py-3 text-xs font-mono uppercase tracking-wider hover:bg-gray-800 transition"
             >
               Search Routes & Shuttles →
@@ -216,6 +234,51 @@ export default function StudentDashboard() {
                 {searchTriggered ? 'No route serves both of those stops.' : 'No shuttle routes are available.'}
               </p>
             )}
+
+            {searchTriggered && dbRoutes.map((route) => (
+              <div key={route._id || route.id} className="border border-black bg-white p-4 space-y-3">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <span className="text-[10px] font-mono bg-gray-100 px-2 py-0.5 font-bold">
+                      {route.busNumber || 'DB ROUTE'} · Departs {route.departureTime || '08:00'}
+                    </span>
+                    <h3 className="text-sm font-bold mt-1">{route.routeName || route.name}</h3>
+                  </div>
+                  <span className="text-xs font-mono font-bold bg-gray-100 px-2 py-0.5">
+                    {route.status || 'ACTIVE'}
+                  </span>
+                </div>
+
+                {route.tripSummary && (
+                  <div className="text-xs font-mono bg-gray-50 border border-gray-200 p-2.5 space-y-1">
+                    <div>
+                      <span className="text-gray-500">Trip: </span>
+                      <span className="font-semibold">{route.tripSummary.from} → {route.tripSummary.to}</span>
+                    </div>
+                    <div>
+                      <span className="text-gray-500">ETA: </span>
+                      <span className="font-semibold">
+                        {route.tripSummary.expectedPickupTime} → {route.tripSummary.expectedDropoffTime}
+                      </span>
+                      <span className="text-gray-500"> ({route.tripSummary.estimatedDurationMins} mins)</span>
+                    </div>
+                  </div>
+                )}
+
+                <div className="text-xs text-gray-600 font-mono">
+                  Stops:{' '}
+                  {(route.stops || [])
+                    .map((stop) =>
+                      typeof stop === 'string'
+                        ? stop
+                        : `${stop.name}${stop.expectedArrival ? ` (${stop.expectedArrival})` : ''}`
+                    )
+                    .join(' → ')}
+                </div>
+              </div>
+            ))}
+
+
 
             {matchingRoutes.map((route) => (
               <div key={route.id} className="border border-gray-200 bg-white p-4 space-y-3 hover:border-black transition">
