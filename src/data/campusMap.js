@@ -1,6 +1,14 @@
 const SAMPLE_ROUTE_ID = "SAMPLE_GATE_TO_CENTRE";
 
-// Public map points used as replaceable examples, not confirmed shuttle stops.
+export const stopCoordinatesByName = {
+  "Boys Hostel": [31.2562, 75.7028],
+  "Library": [31.2554, 75.7051],
+  "Sports Complex": [31.2535, 75.7065],
+  "Main Gate": [31.260694, 75.707298],
+  "Front gate LPU — sample stop": [31.260694, 75.707298],
+  "LPU campus OSM point — sample stop": [31.25492, 75.70462],
+};
+
 export const campusStops = [
   {
     id: "SAMPLE_GATE",
@@ -22,8 +30,6 @@ export const campusStops = [
   },
 ];
 
-// LPU describes a shuttle from the main gate to the campus centre, but does
-// not publish its exact path. This dashed line is only a schematic connector.
 export const campusRoutes = [
   {
     id: SAMPLE_ROUTE_ID,

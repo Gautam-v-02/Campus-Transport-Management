@@ -59,6 +59,7 @@ export default function StudentDashboard() {
   const [authReady, setAuthReady] = useState(false);
   const [authError, setAuthError] = useState('');
   const [dbRoutes, setDbRoutes] = useState([]);
+  const [selectedMapRoute, setSelectedMapRoute] = useState(null);
   // Journey search state
   const [pickup, setPickup] = useState('Boys Hostel');
   const [destination, setDestination] = useState('Main Gate');
@@ -131,21 +132,27 @@ export default function StudentDashboard() {
     ? availableRoutes.filter((route) => routeMatchesJourney(route, pickup, destination))
     : availableRoutes;
 
-async function handleSearch() {
+  async function handleSearch() {
     setSearchTriggered(true);
     try {
       const query = new URLSearchParams({ from: pickup, to: destination }).toString();
       const res = await fetch(`/api/routes?${query}`);
       const json = await res.json();
       if (res.ok && json.success) {
-        setDbRoutes(json.data || []);
+        const routesList = json.data || [];
+        setDbRoutes(routesList);
+        setSelectedMapRoute(routesList[0] || null);
       } else {
         setDbRoutes([]);
+        setSelectedMapRoute(null);
       }
     } catch {
       setDbRoutes([]);
+      setSelectedMapRoute(null);
     }
   }
+
+  const activeMapRoute = selectedMapRoute || dbRoutes?.[0] || null;
 
   return (
     <main className="min-h-screen bg-white text-black selection:bg-black selection:text-white flex flex-col">
@@ -174,7 +181,7 @@ async function handleSearch() {
 
         {/* Left Panel: Journey Planner & Results (5 Cols) */}
         <div className="lg:col-span-5 border-r border-gray-200 p-6 lg:p-8 space-y-6 overflow-y-auto">
-          
+
           <div>
             <span className="text-xs font-mono uppercase tracking-widest text-gray-400">Module 01</span>
             <h1 className="text-2xl font-bold tracking-tight mt-1">Journey Planner</h1>
@@ -213,7 +220,7 @@ async function handleSearch() {
               </div>
             </div>
 
-           <button
+            <button
               type="button"
               onClick={handleSearch}
               className="w-full bg-black text-white text-center py-3 text-xs font-mono uppercase tracking-wider hover:bg-gray-800 transition"
@@ -235,50 +242,71 @@ async function handleSearch() {
               </p>
             )}
 
-            {searchTriggered && dbRoutes.map((route) => (
-              <div key={route._id || route.id} className="border border-black bg-white p-4 space-y-3">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <span className="text-[10px] font-mono bg-gray-100 px-2 py-0.5 font-bold">
-                      {route.busNumber || 'DB ROUTE'} · Departs {route.departureTime || '08:00'}
-                    </span>
-                    <h3 className="text-sm font-bold mt-1">{route.routeName || route.name}</h3>
-                  </div>
-                  <span className="text-xs font-mono font-bold bg-gray-100 px-2 py-0.5">
-                    {route.status || 'ACTIVE'}
-                  </span>
-                </div>
+            {searchTriggered && dbRoutes.map((route, index) => {
+              const isSelected =
+                (activeMapRoute?._id && route._id && activeMapRoute._id === route._id) ||
+                (activeMapRoute?.id && route.id && activeMapRoute.id === route.id) ||
+                activeMapRoute === route;
 
-                {route.tripSummary && (
-                  <div className="text-xs font-mono bg-gray-50 border border-gray-200 p-2.5 space-y-1">
+              return (
+                <div
+                  key={route._id || route.id || index}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => setSelectedMapRoute(route)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      setSelectedMapRoute(route);
+                    }
+                  }}
+                  className={`cursor-pointer p-4 space-y-3 transition ${
+                    isSelected
+                      ? 'border-2 border-black bg-gray-50'
+                      : 'border border-gray-200 bg-white hover:border-black'
+                  }`}
+                >
+                  <div className="flex justify-between items-start">
                     <div>
-                      <span className="text-gray-500">Trip: </span>
-                      <span className="font-semibold">{route.tripSummary.from} → {route.tripSummary.to}</span>
-                    </div>
-                    <div>
-                      <span className="text-gray-500">ETA: </span>
-                      <span className="font-semibold">
-                        {route.tripSummary.expectedPickupTime} → {route.tripSummary.expectedDropoffTime}
+                      <span className="text-[10px] font-mono bg-gray-100 px-2 py-0.5 font-bold">
+                        {route.busNumber || 'DB ROUTE'} · Departs {route.departureTime || '08:00'}
                       </span>
-                      <span className="text-gray-500"> ({route.tripSummary.estimatedDurationMins} mins)</span>
+                      <h3 className="text-sm font-bold mt-1">{route.routeName || route.name}</h3>
                     </div>
+                    <span className="text-xs font-mono font-bold bg-gray-100 px-2 py-0.5">
+                      {isSelected ? 'ON MAP' : route.status || 'ACTIVE'}
+                    </span>
                   </div>
-                )}
 
-                <div className="text-xs text-gray-600 font-mono">
-                  Stops:{' '}
-                  {(route.stops || [])
-                    .map((stop) =>
-                      typeof stop === 'string'
-                        ? stop
-                        : `${stop.name}${stop.expectedArrival ? ` (${stop.expectedArrival})` : ''}`
-                    )
-                    .join(' → ')}
+                  {route.tripSummary && (
+                    <div className="text-xs font-mono bg-gray-50 border border-gray-200 p-2.5 space-y-1">
+                      <div>
+                        <span className="text-gray-500">Trip: </span>
+                        <span className="font-semibold">{route.tripSummary.from} → {route.tripSummary.to}</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-500">ETA: </span>
+                        <span className="font-semibold">
+                          {route.tripSummary.expectedPickupTime} → {route.tripSummary.expectedDropoffTime}
+                        </span>
+                        <span className="text-gray-500"> ({route.tripSummary.estimatedDurationMins} mins)</span>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="text-xs text-gray-600 font-mono">
+                    Stops:{' '}
+                    {(route.stops || [])
+                      .map((stop) =>
+                        typeof stop === 'string'
+                          ? stop
+                          : `${stop.name}${stop.expectedArrival ? ` (${stop.expectedArrival})` : ''}`
+                      )
+                      .join(' → ')}
+                  </div>
                 </div>
-              </div>
-            ))}
-
-
+              );
+            })}
 
             {matchingRoutes.map((route) => (
               <div key={route.id} className="border border-gray-200 bg-white p-4 space-y-3 hover:border-black transition">
@@ -314,7 +342,7 @@ async function handleSearch() {
 
         {/* Right Panel: Campus Map Overview (7 Cols) */}
         <div className="lg:col-span-7 bg-gray-50 p-6 lg:p-8 flex flex-col justify-between relative min-h-[400px]">
-          
+
           <div className="flex justify-between items-center z-10">
             <div>
               <span className="text-xs font-mono uppercase tracking-wider text-gray-400">Campus Map</span>
@@ -325,7 +353,7 @@ async function handleSearch() {
             </div>
           </div>
 
-          <CampusMap className="my-8" />
+          <CampusMap className="my-8" selectedRoute={activeMapRoute} />
 
           <div className="flex justify-between items-center text-xs font-mono text-gray-400 z-10">
             <p>SAMPLE STOPS · SCHEMATIC ROUTE</p>
