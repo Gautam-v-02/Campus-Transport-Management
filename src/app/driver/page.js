@@ -494,7 +494,7 @@ export default function DriverDashboard() {
               <p className="text-sm text-gray-500">Campus map</p>
               <h2 className="mt-1 text-xl font-bold">Lovely Professional University</h2>
               <p className="mt-1 text-sm text-gray-500">
-                Stop markers are sample locations. The dashed line is a schematic of the documented main-gate-to-campus-centre service, not a verified road path.
+                Numbered markers show route stops. Green checks mark reached stops; the bus icon shows live GPS. Stop positions are schematic.
               </p>
             </div>
             <article className="border border-gray-200 bg-white p-4">
@@ -520,7 +520,11 @@ export default function DriverDashboard() {
                 </p>
               )}
             </article>
-            <CampusMap position={gpsPosition} trackingStatus={visibleGpsStatus} />
+            <CampusMap
+              position={gpsPosition}
+              trackingStatus={visibleGpsStatus}
+              selectedRoute={{ ...route, completedStops, shuttleNumber: shuttle.shuttleNumber }}
+            />
           </section>
 
           <RoutePanel

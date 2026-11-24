@@ -21,7 +21,8 @@ async function getWorkspaceData(driver, database) {
 
   await Promise.all([
     shuttleCollection.updateOne({ id: shuttleSeed.id }, { $setOnInsert: shuttleSeed }, { upsert: true }),
-    routeCollection.updateOne({ id: routeSeed.id }, { $setOnInsert: routeSeed }, { upsert: true }),
+    // Keep the driver's route stops in sync with the shared route definitions.
+    routeCollection.updateOne({ id: routeSeed.id }, { $set: routeSeed }, { upsert: true }),
     ...sampleTrips.filter((trip) => trip.driverId === driver.id).map((trip) =>
       tripsCollection.updateOne({ id: trip.id }, { $setOnInsert: trip }, { upsert: true })),
     ...sampleReports.filter((report) => report.driverId === driver.id).map((report) =>

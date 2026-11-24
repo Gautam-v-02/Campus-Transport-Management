@@ -41,3 +41,41 @@ body {
   box-shadow: 0 1px 5px rgb(0 0 0 / 35%);
   font-size: 18px;
 }
+
+.campus-stop-icon {
+  background: transparent;
+  border: 0;
+}
+
+.campus-stop-icon span {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border: 2px solid #ffffff;
+  border-radius: 9999px;
+  background: #ffffff;
+  color: #111827;
+  box-shadow: 0 1px 5px rgb(0 0 0 / 35%);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.campus-stop-icon .is-reached {
+  background: #16a34a;
+  color: #ffffff;
+}
+
+.campus-stop-tooltip {
+  border: 0;
+  border-radius: 3px;
+  background: rgb(255 255 255 / 95%);
+  color: #111827;
+  box-shadow: 0 1px 4px rgb(0 0 0 / 25%);
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.campus-stop-tooltip::before {
+  display: none;
+}
