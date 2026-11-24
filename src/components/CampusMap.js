@@ -5,6 +5,53 @@ import { campusRoutes, campusStops, stopCoordinatesByName } from "@/data/campusM
 
 const LPU_CAMPUS_REFERENCE = [31.25492, 75.70462];
 
+function createRoutePopup(stop, route) {
+  const routeName = route.routeName || route.name || "Shuttle route";
+  const shuttleName = route.busNumber || route.shuttleNumber;
+  const content = document.createElement("div");
+  const stopName = document.createElement("strong");
+  stopName.textContent = `${stop.order ?? stop.sequence ?? ""}. ${stop.name}`;
+  content.append(stopName, document.createElement("br"));
+
+  const routeDetails = document.createElement("span");
+  routeDetails.textContent = `Route: ${routeName}${shuttleName ? ` (${shuttleName})` : ""}`;
+  content.append(routeDetails, document.createElement("br"));
+
+  const stopStatus = document.createElement("span");
+  stopStatus.textContent = stop.reached ? "Reached" : "Upcoming";
+  content.append(stopStatus);
+
+  if (Number.isFinite(stop.minutesFromStart)) {
+    content.append(document.createElement("br"));
+    const arrival = document.createElement("span");
+    arrival.textContent = `+${stop.minutesFromStart} min from start`;
+    content.append(arrival);
+  }
+  return content;
+}
+
+function createRouteLinePopup(route) {
+  const content = document.createElement("div");
+  const routeName = document.createElement("strong");
+  routeName.textContent = `${route.routeName || route.name || "Shuttle route"}${route.busNumber || route.shuttleNumber ? ` (${route.busNumber || route.shuttleNumber})` : ""}`;
+  content.append(routeName);
+  return content;
+}
+
+function createStopTooltip(name) {
+  const label = document.createElement("span");
+  label.textContent = name;
+  return label;
+}
+
+function getRouteSignature(route) {
+  if (!route) return "sample-route";
+  const stopDetails = (route.stops || []).map((stop) => typeof stop === "string"
+    ? stop
+    : `${stop.name}:${stop.order ?? stop.sequence ?? ""}:${stop.latitude ?? ""}:${stop.longitude ?? ""}`);
+  return `${route.id}:${route.routeName || route.name}:${route.completedStops || 0}:${stopDetails.join("|")}`;
+}
+
 export function CampusMap({
   className = "",
   position = null,
@@ -16,8 +63,17 @@ export function CampusMap({
   const leafletLibrary = useRef(null);
   const shuttleMarker = useRef(null);
   const routeLayerGroup = useRef(null);
+  const renderedRouteSignature = useRef(null);
   const [mapReady, setMapReady] = useState(false);
   const [mapError, setMapError] = useState("");
+  const routeSignature = getRouteSignature(selectedRoute);
+  const unmappedStops = selectedRoute?.stops?.filter((stop) => {
+    const name = typeof stop === "string" ? stop : stop.name;
+    const hasCoordinates = typeof stop === "object"
+      && Number.isFinite(stop.latitude)
+      && Number.isFinite(stop.longitude);
+    return !hasCoordinates && !stopCoordinatesByName[name];
+  }).length || 0;
 
   useEffect(() => {
     let map;
@@ -62,6 +118,7 @@ export function CampusMap({
       leafletLibrary.current = null;
       shuttleMarker.current = null;
       routeLayerGroup.current = null;
+      renderedRouteSignature.current = null;
     };
   }, []);
 
@@ -70,30 +127,52 @@ export function CampusMap({
     const L = leafletLibrary.current;
     const layerGroup = routeLayerGroup.current;
     if (!mapReady || !map || !L || !layerGroup) return;
+    if (renderedRouteSignature.current === routeSignature) return;
 
     layerGroup.clearLayers();
+    renderedRouteSignature.current = routeSignature;
 
     if (selectedRoute && Array.isArray(selectedRoute.stops) && selectedRoute.stops.length > 0) {
-      const sortedStops = [...selectedRoute.stops].sort((a, b) => a.order - b.order);
+      const sortedStops = [...selectedRoute.stops].sort(
+        (a, b) => (a.order ?? a.sequence ?? 0) - (b.order ?? b.sequence ?? 0),
+      );
       const validPoints = [];
+      const completedStops = selectedRoute.completedStops || 0;
 
       sortedStops.forEach((stop, index) => {
-        const coords = stopCoordinatesByName[stop.name];
+        const stopName = typeof stop === "string" ? stop : stop.name;
+        const coords = typeof stop === "object" && Number.isFinite(stop.latitude) && Number.isFinite(stop.longitude)
+          ? [stop.latitude, stop.longitude]
+          : stopCoordinatesByName[stopName];
         if (!coords) return;
 
         validPoints.push(coords);
+        const reached = index < completedStops;
+        const stopNumber = stop.order ?? stop.sequence ?? index + 1;
+        const stopIcon = L.divIcon({
+          className: "campus-stop-icon",
+          html: `<span class="${reached ? "is-reached" : ""}">${reached ? "✓" : stopNumber}</span>`,
+          iconSize: [28, 28],
+          iconAnchor: [14, 14],
+        });
 
-        L.circleMarker(coords, {
-          radius: 8,
-          color: "#ffffff",
-          weight: 2,
-          fillColor: index === 0 ? "#16a34a" : index === sortedStops.length - 1 ? "#dc2626" : "#111827",
-          fillOpacity: 1,
+        L.marker(coords, {
+          icon: stopIcon,
+          title: `${stopNumber}. ${stopName}${reached ? " — reached" : " — upcoming"}`,
         })
           .addTo(layerGroup)
-          .bindPopup(
-            `<strong>${stop.order}. ${stop.name}</strong><br />Route: ${selectedRoute.routeName} (${selectedRoute.busNumber})<br />+${stop.minutesFromStart} min from start`,
-          );
+          .bindPopup(createRoutePopup({
+            ...stop,
+            order: stopNumber,
+            name: stopName,
+            reached,
+          }, selectedRoute))
+          .bindTooltip(createStopTooltip(stopName), {
+            permanent: true,
+            direction: "top",
+            offset: [0, -11],
+            className: "campus-stop-tooltip",
+          });
       });
 
       if (validPoints.length > 1) {
@@ -103,7 +182,7 @@ export function CampusMap({
           opacity: 0.9,
         })
           .addTo(layerGroup)
-          .bindPopup(`<strong>${selectedRoute.routeName}</strong> (${selectedRoute.busNumber})`);
+          .bindPopup(createRouteLinePopup(selectedRoute));
       }
 
       if (validPoints.length > 0) {
@@ -143,7 +222,7 @@ export function CampusMap({
       L.latLngBounds(campusRoutes.flatMap((route) => route.coordinates)),
       { padding: [32, 32], maxZoom: 16 },
     );
-  }, [mapReady, selectedRoute]);
+  }, [mapReady, routeSignature, selectedRoute]);
 
   useEffect(() => {
     const map = mapInstance.current;
@@ -195,8 +274,13 @@ export function CampusMap({
         </p>
       )}
       <p className="absolute left-3 top-3 z-[500] bg-white/95 px-3 py-2 text-[10px] font-mono uppercase tracking-wide text-gray-700 shadow">
-        {selectedRoute ? `${selectedRoute.routeName} (${selectedRoute.busNumber})` : "Sample stops · schematic route"}
+        {selectedRoute ? `${selectedRoute.routeName || selectedRoute.name}${selectedRoute.shuttleNumber ? ` · ${selectedRoute.shuttleNumber}` : selectedRoute.busNumber ? ` · ${selectedRoute.busNumber}` : ""}` : "Sample stops · schematic route"}
       </p>
+      {unmappedStops > 0 && (
+        <p className="absolute bottom-3 left-3 z-[500] bg-white/95 px-3 py-2 text-[10px] text-gray-700 shadow">
+          {unmappedStops} route {unmappedStops === 1 ? "stop has" : "stops have"} no map coordinates yet.
+        </p>
+      )}
     </div>
   );
 }

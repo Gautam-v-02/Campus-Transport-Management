@@ -2,45 +2,10 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import {
-  getCrowdLevel,
-  getDrivers,
-  getRoutes,
-  getShuttles,
-  getTrips,
-} from '@/lib/mockStore';
 import { CampusMap } from '@/components/CampusMap';
 
-function getStudentShuttleRoutes() {
-  const drivers = getDrivers();
-  const routes = getRoutes();
-  const shuttles = getShuttles();
-  const trips = getTrips();
-
-  return drivers.flatMap((driver) => {
-    const shuttle = shuttles.find((item) => item.id === driver.assignedShuttleId);
-    const route = routes.find((item) => item.id === driver.assignedRouteId);
-    if (!shuttle || !route) return [];
-
-    const activeTrip = trips.find((trip) =>
-      trip.driverId === driver.id && ['IN_PROGRESS', 'DELAYED'].includes(trip.status),
-    );
-
-    return [{
-      id: route.id,
-      name: route.routeName,
-      stops: route.stops.map((stop) => stop.name),
-      capacity: shuttle.capacity,
-      occupiedSeats: shuttle.occupiedSeats,
-      crowdLevel: getCrowdLevel(shuttle.occupiedSeats, shuttle.capacity),
-      status: activeTrip?.status || shuttle.status,
-      shuttleId: shuttle.shuttleNumber,
-    }];
-  });
-}
-
 function routeMatchesJourney(route, pickup, destination) {
-  const stops = route.stops.map((stop) => stop.toLowerCase());
+  const stops = route.stops.map((stop) => (typeof stop === 'string' ? stop : stop.name).toLowerCase());
   const pickupText = pickup.trim().toLowerCase();
   const destinationText = destination.trim().toLowerCase();
   const pickupIndex = pickupText
@@ -50,7 +15,7 @@ function routeMatchesJourney(route, pickup, destination) {
     ? stops.findIndex((stop) => stop.includes(destinationText) || destinationText.includes(stop))
     : stops.length - 1;
 
-  return pickupIndex >= 0 && destinationIndex >= 0 && destinationIndex !== pickupIndex;
+  return pickupIndex >= 0 && destinationIndex > pickupIndex;
 }
 
 export default function StudentDashboard() {
@@ -58,14 +23,14 @@ export default function StudentDashboard() {
   const [client, setClient] = useState(null);
   const [authReady, setAuthReady] = useState(false);
   const [authError, setAuthError] = useState('');
-  const [dbRoutes, setDbRoutes] = useState([]);
-  const [selectedMapRoute, setSelectedMapRoute] = useState(null);
+  const [selectedRouteId, setSelectedRouteId] = useState(null);
   // Journey search state
-  const [pickup, setPickup] = useState('Boys Hostel');
-  const [destination, setDestination] = useState('Main Gate');
+  const [pickup, setPickup] = useState('University Main Gate');
+  const [destination, setDestination] = useState('Sports Complex');
   const [searchTriggered, setSearchTriggered] = useState(false);
   const [availableRoutes, setAvailableRoutes] = useState([]);
   const [fleetReady, setFleetReady] = useState(false);
+  const [fleetError, setFleetError] = useState('');
 
   useEffect(() => {
     let cancelled = false;
@@ -92,17 +57,38 @@ export default function StudentDashboard() {
   }, [router]);
 
   useEffect(() => {
-    function refreshFleet() {
-      setAvailableRoutes(getStudentShuttleRoutes());
-      setFleetReady(true);
+    let cancelled = false;
+    let requestPending = false;
+
+    async function refreshFleet() {
+      if (requestPending) return;
+      requestPending = true;
+      try {
+        const response = await fetch('/api/client/transport', { cache: 'no-store' });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || 'Could not load shuttle information.');
+        if (cancelled) return;
+        const routes = result.routes || [];
+        setAvailableRoutes(routes);
+        setSelectedRouteId((currentId) => routes.some((route) => route.id === currentId)
+          ? currentId
+          : routes[0]?.id || null);
+        setFleetError('');
+      } catch (error) {
+        if (!cancelled) setFleetError(error.message || 'Could not load shuttle information.');
+      } finally {
+        requestPending = false;
+        if (!cancelled) setFleetReady(true);
+      }
     }
 
     refreshFleet();
-    window.addEventListener('storage', refreshFleet);
+    const refreshTimer = window.setInterval(refreshFleet, 5000);
     window.addEventListener('focus', refreshFleet);
 
     return () => {
-      window.removeEventListener('storage', refreshFleet);
+      cancelled = true;
+      window.clearInterval(refreshTimer);
       window.removeEventListener('focus', refreshFleet);
     };
   }, []);
@@ -131,28 +117,18 @@ export default function StudentDashboard() {
   const matchingRoutes = searchTriggered
     ? availableRoutes.filter((route) => routeMatchesJourney(route, pickup, destination))
     : availableRoutes;
+  const stopOptions = [...new Set(availableRoutes.flatMap((route) => route.stops.map((stop) =>
+    typeof stop === 'string' ? stop : stop.name,
+  )))];
 
-  async function handleSearch() {
+  function handleSearch() {
     setSearchTriggered(true);
-    try {
-      const query = new URLSearchParams({ from: pickup, to: destination }).toString();
-      const res = await fetch(`/api/routes?${query}`);
-      const json = await res.json();
-      if (res.ok && json.success) {
-        const routesList = json.data || [];
-        setDbRoutes(routesList);
-        setSelectedMapRoute(routesList[0] || null);
-      } else {
-        setDbRoutes([]);
-        setSelectedMapRoute(null);
-      }
-    } catch {
-      setDbRoutes([]);
-      setSelectedMapRoute(null);
-    }
+    const firstMatch = availableRoutes.find((route) => routeMatchesJourney(route, pickup, destination));
+    setSelectedRouteId(firstMatch?.id || null);
   }
 
-  const activeMapRoute = selectedMapRoute || dbRoutes?.[0] || null;
+  const activeMapRoute = matchingRoutes.find((route) => route.id === selectedRouteId)
+    || (!searchTriggered ? matchingRoutes[0] || null : null);
 
   return (
     <main className="min-h-screen bg-white text-black selection:bg-black selection:text-white flex flex-col">
@@ -198,6 +174,7 @@ export default function StudentDashboard() {
                 <span className="h-2 w-2 bg-black flex-shrink-0"></span>
                 <input
                   type="text"
+                  list="campus-stop-options"
                   value={pickup}
                   onChange={(e) => setPickup(e.target.value)}
                   className="w-full text-sm font-medium text-black bg-transparent outline-none font-mono"
@@ -213,12 +190,17 @@ export default function StudentDashboard() {
                 <span className="h-2 w-2 border border-black flex-shrink-0"></span>
                 <input
                   type="text"
+                  list="campus-stop-options"
                   value={destination}
                   onChange={(e) => setDestination(e.target.value)}
                   className="w-full text-sm font-medium text-black bg-transparent outline-none font-mono"
                 />
               </div>
             </div>
+
+            <datalist id="campus-stop-options">
+              {stopOptions.map((stop) => <option key={stop} value={stop} />)}
+            </datalist>
 
             <button
               type="button"
@@ -236,28 +218,26 @@ export default function StudentDashboard() {
             </h2>
 
             {!fleetReady && <p className="border border-gray-200 p-4 text-sm text-gray-500">Loading shuttle data…</p>}
+            {fleetError && <p role="alert" className="border border-red-200 bg-red-50 p-4 text-sm text-red-800">{fleetError}</p>}
             {fleetReady && matchingRoutes.length === 0 && (
               <p className="border border-gray-200 p-4 text-sm text-gray-500">
                 {searchTriggered ? 'No route serves both of those stops.' : 'No shuttle routes are available.'}
               </p>
             )}
 
-            {searchTriggered && dbRoutes.map((route, index) => {
-              const isSelected =
-                (activeMapRoute?._id && route._id && activeMapRoute._id === route._id) ||
-                (activeMapRoute?.id && route.id && activeMapRoute.id === route.id) ||
-                activeMapRoute === route;
-
+            {matchingRoutes.map((route) => {
+              const isSelected = activeMapRoute?.id === route.id;
+              const stopsReached = route.completedStops || 0;
               return (
                 <div
-                  key={route._id || route.id || index}
+                  key={route.id}
                   role="button"
                   tabIndex={0}
-                  onClick={() => setSelectedMapRoute(route)}
+                  onClick={() => setSelectedRouteId(route.id)}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' || e.key === ' ') {
                       e.preventDefault();
-                      setSelectedMapRoute(route);
+                      setSelectedRouteId(route.id);
                     }
                   }}
                   className={`cursor-pointer p-4 space-y-3 transition ${
@@ -269,73 +249,33 @@ export default function StudentDashboard() {
                   <div className="flex justify-between items-start">
                     <div>
                       <span className="text-[10px] font-mono bg-gray-100 px-2 py-0.5 font-bold">
-                        {route.busNumber || 'DB ROUTE'} · Departs {route.departureTime || '08:00'}
+                        {route.shuttleNumber} · {route.status.replaceAll('_', ' ')}
                       </span>
-                      <h3 className="text-sm font-bold mt-1">{route.routeName || route.name}</h3>
+                      <h3 className="text-sm font-bold mt-1">{route.routeName}</h3>
                     </div>
                     <span className="text-xs font-mono font-bold bg-gray-100 px-2 py-0.5">
-                      {isSelected ? 'ON MAP' : route.status || 'ACTIVE'}
+                      {isSelected ? 'ON MAP' : `${route.availableSeats} SEATS`}
                     </span>
                   </div>
 
-                  {route.tripSummary && (
-                    <div className="text-xs font-mono bg-gray-50 border border-gray-200 p-2.5 space-y-1">
-                      <div>
-                        <span className="text-gray-500">Trip: </span>
-                        <span className="font-semibold">{route.tripSummary.from} → {route.tripSummary.to}</span>
-                      </div>
-                      <div>
-                        <span className="text-gray-500">ETA: </span>
-                        <span className="font-semibold">
-                          {route.tripSummary.expectedPickupTime} → {route.tripSummary.expectedDropoffTime}
-                        </span>
-                        <span className="text-gray-500"> ({route.tripSummary.estimatedDurationMins} mins)</span>
-                      </div>
-                    </div>
-                  )}
+                  <div className="grid grid-cols-2 gap-3 border border-gray-200 bg-gray-50 p-3 text-xs font-mono">
+                    <p>Passengers: <strong>{route.occupiedSeats} / {route.capacity}</strong></p>
+                    <p>Next stop: <strong>{route.nextStop || 'Not in service'}</strong></p>
+                    {route.activeTripId && (
+                      <p className="col-span-2">Progress: <strong>{stopsReached} / {route.stops.length} stops reached</strong></p>
+                    )}
+                    {route.currentLocation && <p className="col-span-2 text-emerald-700">Live shuttle location is available</p>}
+                  </div>
 
                   <div className="text-xs text-gray-600 font-mono">
                     Stops:{' '}
                     {(route.stops || [])
-                      .map((stop) =>
-                        typeof stop === 'string'
-                          ? stop
-                          : `${stop.name}${stop.expectedArrival ? ` (${stop.expectedArrival})` : ''}`
-                      )
+                      .map((stop, index) => `${stopsReached > index ? '✓ ' : ''}${typeof stop === 'string' ? stop : stop.name}`)
                       .join(' → ')}
                   </div>
                 </div>
               );
             })}
-
-            {matchingRoutes.map((route) => (
-              <div key={route.id} className="border border-gray-200 bg-white p-4 space-y-3 hover:border-black transition">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <span className="text-[10px] font-mono bg-gray-100 px-2 py-0.5 font-bold">{route.shuttleId} · {route.id}</span>
-                    <h3 className="text-sm font-bold mt-1">{route.name}</h3>
-                  </div>
-                  <span className="text-xs font-mono font-bold bg-gray-100 px-2 py-0.5">
-                    {route.status.replaceAll('_', ' ')}
-                  </span>
-                </div>
-
-                <div className="text-xs text-gray-500 font-mono">
-                  Stops: {route.stops.join(' → ')}
-                </div>
-
-                <div className="border-t border-gray-100 pt-3 flex justify-between items-center text-xs font-mono">
-                  <div>
-                    <span className="text-gray-400">Capacity: </span>
-                    <span className="font-bold text-black">{route.occupiedSeats} / {route.capacity} seats</span>
-                  </div>
-                  <div>
-                    <span className="text-gray-400">Crowd: </span>
-                    <span className="font-semibold text-black">{route.crowdLevel}</span>
-                  </div>
-                </div>
-              </div>
-            ))}
           </div>
 
         </div>
@@ -353,10 +293,15 @@ export default function StudentDashboard() {
             </div>
           </div>
 
-          <CampusMap className="my-8" selectedRoute={activeMapRoute} />
+          <CampusMap
+            className="my-8"
+            selectedRoute={activeMapRoute}
+            position={activeMapRoute?.currentLocation || null}
+            trackingStatus={activeMapRoute?.status || 'INACTIVE'}
+          />
 
           <div className="flex justify-between items-center text-xs font-mono text-gray-400 z-10">
-            <p>SAMPLE STOPS · SCHEMATIC ROUTE</p>
+            <p>STOP NUMBERS · ✓ REACHED · 🚌 LIVE GPS · SCHEMATIC POSITIONS</p>
             <a href="https://www.openstreetmap.org/node/1406003115" target="_blank" rel="noreferrer" className="underline hover:text-black">
               VIEW MAP SOURCE
             </a>
