@@ -31,6 +31,9 @@ export default function StudentDashboard() {
   const [availableRoutes, setAvailableRoutes] = useState([]);
   const [fleetReady, setFleetReady] = useState(false);
   const [fleetError, setFleetError] = useState('');
+  const [userPosition, setUserPosition] = useState(null);
+  const [locationMessage, setLocationMessage] = useState('');
+  const [locating, setLocating] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -98,6 +101,38 @@ export default function StudentDashboard() {
       await fetch('/api/client/session', { method: 'DELETE' });
     } catch { /* Continue to account access even when offline. */ }
     router.replace('/login');
+  }
+
+  function showMyLocation() {
+    if (!navigator.geolocation) {
+      setLocationMessage('This browser does not support location.');
+      return;
+    }
+
+    setLocating(true);
+    setLocationMessage('Finding your location…');
+    navigator.geolocation.getCurrentPosition(
+      ({ coords, timestamp }) => {
+        setUserPosition({
+          latitude: coords.latitude,
+          longitude: coords.longitude,
+          accuracy: coords.accuracy,
+          timestamp,
+        });
+        setLocationMessage(`Your location is shown on the map (±${Math.round(coords.accuracy)} m).`);
+        setLocating(false);
+      },
+      (error) => {
+        const messages = {
+          1: 'Location permission was denied. Allow location access in your browser settings and try again.',
+          2: 'Your location could not be determined. Check your device location settings and try again.',
+          3: 'The location request timed out. Try again in a moment.',
+        };
+        setLocationMessage(messages[error.code] || 'Could not get your location. Try again.');
+        setLocating(false);
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 30000 },
+    );
   }
 
   if (!authReady) {
@@ -293,10 +328,23 @@ export default function StudentDashboard() {
             </div>
           </div>
 
+          <div className="z-10 mt-4 flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              onClick={showMyLocation}
+              disabled={locating}
+              className="border border-gray-300 bg-white px-3 py-2 text-xs font-mono hover:border-black disabled:cursor-wait disabled:opacity-60"
+            >
+              {locating ? 'FINDING LOCATION…' : 'SHOW MY LOCATION'}
+            </button>
+            {locationMessage && <p role="status" className="text-xs text-gray-600">{locationMessage}</p>}
+          </div>
+
           <CampusMap
             className="my-8"
             selectedRoute={activeMapRoute}
             position={activeMapRoute?.currentLocation || null}
+            userPosition={userPosition}
             trackingStatus={activeMapRoute?.status || 'INACTIVE'}
           />
 

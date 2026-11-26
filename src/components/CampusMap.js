@@ -55,6 +55,7 @@ function getRouteSignature(route) {
 export function CampusMap({
   className = "",
   position = null,
+  userPosition = null,
   trackingStatus = "INACTIVE",
   selectedRoute = null,
 }) {
@@ -62,6 +63,7 @@ export function CampusMap({
   const mapInstance = useRef(null);
   const leafletLibrary = useRef(null);
   const shuttleMarker = useRef(null);
+  const userMarker = useRef(null);
   const routeLayerGroup = useRef(null);
   const renderedRouteSignature = useRef(null);
   const [mapReady, setMapReady] = useState(false);
@@ -117,6 +119,7 @@ export function CampusMap({
       mapInstance.current = null;
       leafletLibrary.current = null;
       shuttleMarker.current = null;
+      userMarker.current = null;
       routeLayerGroup.current = null;
       renderedRouteSignature.current = null;
     };
@@ -260,6 +263,47 @@ export function CampusMap({
     }
   }, [mapReady, position, trackingStatus]);
 
+  useEffect(() => {
+    const map = mapInstance.current;
+    const L = leafletLibrary.current;
+    if (!mapReady || !map || !L) return;
+
+    if (!userPosition) {
+      userMarker.current?.remove();
+      userMarker.current = null;
+      return;
+    }
+
+    const coordinates = [userPosition.latitude, userPosition.longitude];
+    if (!coordinates.every(Number.isFinite)) return;
+
+    if (!userMarker.current) {
+      const locationIcon = L.divIcon({
+        className: "campus-user-location-icon",
+        html: '<span aria-hidden="true"></span>',
+        iconSize: [24, 24],
+        iconAnchor: [12, 12],
+      });
+      userMarker.current = L.marker(coordinates, {
+        icon: locationIcon,
+        title: "Your current location",
+        zIndexOffset: 1000,
+      })
+        .addTo(map)
+        .bindPopup("");
+      map.setView(coordinates, Math.max(map.getZoom(), 16));
+    } else {
+      userMarker.current.setLatLng(coordinates);
+      if (!map.getBounds().contains(coordinates)) {
+        map.panInside(coordinates, { padding: [48, 48] });
+      }
+    }
+
+    userMarker.current.setPopupContent(
+      `<strong>Your current location</strong><br />Accuracy: ±${Math.round(userPosition.accuracy)} m<br />Updated: ${new Date(userPosition.timestamp).toLocaleTimeString()}`,
+    );
+  }, [mapReady, userPosition]);
+
   return (
     <div className={`relative h-[420px] w-full overflow-hidden border border-gray-200 bg-gray-100 ${className}`}>
       <div
@@ -276,6 +320,12 @@ export function CampusMap({
       <p className="absolute left-3 top-3 z-[500] bg-white/95 px-3 py-2 text-[10px] font-mono uppercase tracking-wide text-gray-700 shadow">
         {selectedRoute ? `${selectedRoute.routeName || selectedRoute.name}${selectedRoute.shuttleNumber ? ` · ${selectedRoute.shuttleNumber}` : selectedRoute.busNumber ? ` · ${selectedRoute.busNumber}` : ""}` : "Sample stops · schematic route"}
       </p>
+      {userPosition && (
+        <p className="absolute left-3 top-11 z-[500] flex items-center gap-2 bg-white/95 px-3 py-2 text-[10px] font-mono uppercase tracking-wide text-gray-700 shadow">
+          <span className="h-2.5 w-2.5 rounded-full border-2 border-white bg-blue-600 shadow" />
+          Your location
+        </p>
+      )}
       {unmappedStops > 0 && (
         <p className="absolute bottom-3 left-3 z-[500] bg-white/95 px-3 py-2 text-[10px] text-gray-700 shadow">
           {unmappedStops} route {unmappedStops === 1 ? "stop has" : "stops have"} no map coordinates yet.
